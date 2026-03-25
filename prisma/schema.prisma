@@ -52,6 +52,7 @@ enum ImportType {
   BANK_STATEMENT
   CARD_TRANSACTION
   PURCHASE_INVOICE
+  PLUGGY_SYNC
 }
 
 enum ImportStatus {
@@ -78,6 +79,7 @@ enum StagingSource {
   IMPORT_BANK_STATEMENT
   IMPORT_CARD
   IMPORT_PURCHASE_INVOICE
+  IMPORT_PLUGGY
 }
 
 enum StagingStatus {
@@ -147,6 +149,14 @@ enum AuditAction {
   DELETE
 }
 
+enum PluggyConnectionStatus {
+  LOGIN_IN_PROGRESS
+  WAITING_USER_INPUT
+  OUTDATED
+  UPDATED
+  ERROR
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Tenant {
@@ -183,6 +193,7 @@ model Tenant {
   closingChecklists  ClosingChecklist[]
   stockMovements     StockMovement[]
   auditLogs          AuditLog[]
+  pluggyConnections  PluggyConnection[]
 }
 
 model User {
@@ -210,6 +221,7 @@ model User {
   createdRecurringRules     RecurringRule[]        @relation("RecurringRuleCreatedBy")
   completedChecklists       ClosingChecklist[]    @relation("ChecklistCompletedBy")
   createdStockMovements     StockMovement[]       @relation("StockMovementCreatedBy")
+  createdPluggyConnections  PluggyConnection[]    @relation("PluggyConnectionCreatedBy")
 }
 
 model Membership {
@@ -400,6 +412,7 @@ model BankAccount {
   officialEntries    OfficialEntry[]
   settlements        Settlement[]
   recurringRules     RecurringRule[]
+  pluggyConnections  PluggyConnection[]
 
   @@unique([tenantId, bankCode, agency, accountNumber])
   @@index([tenantId])
@@ -575,6 +588,7 @@ model BankStatementLine {
   amount          Decimal
   balance         Decimal
   type            TransactionType
+  externalId      String?
   createdAt       DateTime        @default(now())
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -583,6 +597,7 @@ model BankStatementLine {
 
   reconciliation Reconciliation?
 
+  @@unique([tenantId, bankAccountId, externalId])
   @@index([tenantId])
   @@index([importBatchId])
   @@index([bankAccountId])
@@ -956,4 +971,28 @@ model AuditLog {
   @@index([tenantId, tableName, recordId])
   @@index([tenantId, createdAt])
   @@index([userId])
+}
+
+model PluggyConnection {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  pluggyItemId    String                  @unique
+  connectorId     Int
+  connectorName   String
+  connectorLogo   String?
+  status          PluggyConnectionStatus  @default(LOGIN_IN_PROGRESS)
+  lastSyncAt      DateTime?
+  executionError  String?
+  bankAccountId   String?
+  pluggyAccountId String?
+  createdById     String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id])
+  createdBy   User         @relation("PluggyConnectionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, status])
 }

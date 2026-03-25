@@ -24,6 +24,7 @@ import {
   FileText,
   Shield,
   Settings,
+  Plug,
   type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +67,7 @@ export const navigation: NavGroup[] = [
       { title: "Extrato Bancário", href: "/imports/bank-statements", icon: Upload },
       { title: "Cartões", href: "/imports/card-transactions", icon: Upload },
       { title: "NFs de Compra", href: "/imports/purchase-invoices", icon: Upload },
+      { title: "Conexoes Bancarias", href: "/imports/pluggy", icon: Plug },
     ],
   },
   {
