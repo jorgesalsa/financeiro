@@ -29,7 +29,7 @@ export default async function AppLayout({
         tenantName={tenantName}
       />
       <main className="flex-1 overflow-y-auto bg-background">
-        <div className="p-6">{children}</div>
+        <div className="p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>
       </main>
     </div>
   );

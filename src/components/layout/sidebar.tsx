@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navigation } from "@/lib/constants/navigation";
-import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronRight, LogOut, Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 
 interface SidebarProps {
@@ -16,16 +16,44 @@ interface SidebarProps {
 export function Sidebar({ userName, tenantName }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   function toggleGroup(label: string) {
     setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
   }
 
-  return (
-    <aside className="flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-white/10 p-4">
-        <h1 className="text-lg font-bold">Sistema Financeiro</h1>
-        <p className="text-xs text-sidebar-foreground/60">{tenantName}</p>
+  const sidebarContent = (
+    <>
+      <div className="border-b border-white/10 p-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold">Sistema Financeiro</h1>
+          <p className="text-xs text-sidebar-foreground/60">{tenantName}</p>
+        </div>
+        {/* Close button - mobile only */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden rounded-md p-1.5 text-sidebar-foreground/60 hover:bg-white/5 hover:text-sidebar-foreground"
+          aria-label="Fechar menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2">
@@ -85,6 +113,42 @@ export function Sidebar({ userName, tenantName }: SidebarProps) {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="fixed top-3 left-3 z-40 lg:hidden rounded-md bg-sidebar p-2 text-white shadow-lg"
+        aria-label="Abrir menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar (slide-in) */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-in-out lg:hidden",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* Desktop sidebar (always visible) */}
+      <aside className="hidden lg:flex h-screen w-64 flex-col bg-sidebar text-sidebar-foreground flex-shrink-0">
+        {sidebarContent}
+      </aside>
+    </>
   );
 }
