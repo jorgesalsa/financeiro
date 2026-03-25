@@ -89,6 +89,12 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  function showFeedback(type: "success" | "error", message: string) {
+    setFeedback({ type, message });
+    setTimeout(() => setFeedback(null), 5000);
+  }
 
   const filteredData = useMemo(() => {
     if (activeTab === "ALL") return data;
@@ -118,9 +124,37 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     startTransition(async () => {
-      await validateEntries(ids);
-      setSelectedIds(new Set());
-      router.refresh();
+      try {
+        const results = await validateEntries(ids);
+        const failed = results.filter((r: any) => !r.valid);
+        if (failed.length > 0) {
+          const allErrors = failed.flatMap((f: any) => f.errors);
+          showFeedback("error", `Validacao falhou: ${allErrors.join(", ")}`);
+        } else {
+          showFeedback("success", `${results.length} lancamento(s) validado(s) com sucesso!`);
+        }
+        setSelectedIds(new Set());
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao validar");
+      }
+    });
+  }
+
+  async function handleValidateSingle(id: string) {
+    startTransition(async () => {
+      try {
+        const results = await validateEntries([id]);
+        const result = results[0] as any;
+        if (!result.valid) {
+          showFeedback("error", `Validacao falhou: ${result.errors.join(", ")}`);
+        } else {
+          showFeedback("success", "Lancamento validado com sucesso!");
+        }
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao validar");
+      }
     });
   }
 
@@ -129,22 +163,35 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
       const entry = data.find((e) => e.id === id);
       return entry?.status === "VALIDATED";
     });
-    if (ids.length === 0) return;
+    if (ids.length === 0) {
+      showFeedback("error", "Selecione lancamentos com status 'Validado' para incorporar");
+      return;
+    }
     startTransition(async () => {
-      await incorporateEntries(ids);
-      setSelectedIds(new Set());
-      router.refresh();
+      try {
+        const results = await incorporateEntries(ids);
+        showFeedback("success", `${results.length} lancamento(s) incorporado(s) com sucesso!`);
+        setSelectedIds(new Set());
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao incorporar");
+      }
     });
   }
 
   async function handleReject() {
     if (!rejectingId || !rejectReason.trim()) return;
     startTransition(async () => {
-      await rejectStagingEntry(rejectingId, rejectReason);
-      setRejectOpen(false);
-      setRejectingId(null);
-      setRejectReason("");
-      router.refresh();
+      try {
+        await rejectStagingEntry(rejectingId, rejectReason);
+        showFeedback("success", "Lancamento rejeitado");
+        setRejectOpen(false);
+        setRejectingId(null);
+        setRejectReason("");
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao rejeitar");
+      }
     });
   }
 
@@ -152,22 +199,27 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      await createStagingEntry({
-        date: new Date(formData.get("date") as string),
-        description: formData.get("description") as string,
-        amount: parseFloat(formData.get("amount") as string),
-        type: formData.get("transactionType") as "CREDIT" | "DEBIT",
-        counterpartName: (formData.get("counterpartName") as string) || null,
-        chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
-        costCenterId: (formData.get("costCenterId") as string) || null,
-        bankAccountId: (formData.get("bankAccountId") as string) || null,
-        supplierId: (formData.get("supplierId") as string) || null,
-        customerId: (formData.get("customerId") as string) || null,
-        paymentMethodId: (formData.get("paymentMethodId") as string) || null,
-        notes: (formData.get("notes") as string) || null,
-      });
-      setCreateOpen(false);
-      router.refresh();
+      try {
+        await createStagingEntry({
+          date: new Date(formData.get("date") as string),
+          description: formData.get("description") as string,
+          amount: parseFloat(formData.get("amount") as string),
+          type: formData.get("transactionType") as "CREDIT" | "DEBIT",
+          counterpartName: (formData.get("counterpartName") as string) || null,
+          chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
+          costCenterId: (formData.get("costCenterId") as string) || null,
+          bankAccountId: (formData.get("bankAccountId") as string) || null,
+          supplierId: (formData.get("supplierId") as string) || null,
+          customerId: (formData.get("customerId") as string) || null,
+          paymentMethodId: (formData.get("paymentMethodId") as string) || null,
+          notes: (formData.get("notes") as string) || null,
+        });
+        showFeedback("success", "Lancamento criado com sucesso!");
+        setCreateOpen(false);
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao criar lancamento");
+      }
     });
   }
 
@@ -176,23 +228,28 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     if (!editing) return;
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      await updateStagingEntry(editing.id, {
-        date: new Date(formData.get("date") as string),
-        description: formData.get("description") as string,
-        amount: parseFloat(formData.get("amount") as string),
-        type: formData.get("transactionType") as "CREDIT" | "DEBIT",
-        counterpartName: (formData.get("counterpartName") as string) || null,
-        chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
-        costCenterId: (formData.get("costCenterId") as string) || null,
-        bankAccountId: (formData.get("bankAccountId") as string) || null,
-        supplierId: (formData.get("supplierId") as string) || null,
-        customerId: (formData.get("customerId") as string) || null,
-        paymentMethodId: (formData.get("paymentMethodId") as string) || null,
-        notes: (formData.get("notes") as string) || null,
-      });
-      setEditOpen(false);
-      setEditing(null);
-      router.refresh();
+      try {
+        await updateStagingEntry(editing.id, {
+          date: new Date(formData.get("date") as string),
+          description: formData.get("description") as string,
+          amount: parseFloat(formData.get("amount") as string),
+          type: formData.get("transactionType") as "CREDIT" | "DEBIT",
+          counterpartName: (formData.get("counterpartName") as string) || null,
+          chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
+          costCenterId: (formData.get("costCenterId") as string) || null,
+          bankAccountId: (formData.get("bankAccountId") as string) || null,
+          supplierId: (formData.get("supplierId") as string) || null,
+          customerId: (formData.get("customerId") as string) || null,
+          paymentMethodId: (formData.get("paymentMethodId") as string) || null,
+          notes: (formData.get("notes") as string) || null,
+        });
+        showFeedback("success", "Lancamento atualizado com sucesso!");
+        setEditOpen(false);
+        setEditing(null);
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao atualizar lancamento");
+      }
     });
   }
 
@@ -298,12 +355,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => {
-                  startTransition(async () => {
-                    await validateEntries([entry.id]);
-                    router.refresh();
-                  });
-                }}
+                onClick={() => handleValidateSingle(entry.id)}
                 title="Validar"
               >
                 <CheckCircle className="h-4 w-4 text-green-600" />
@@ -330,6 +382,25 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
 
   return (
     <>
+      {/* Feedback banner */}
+      {feedback && (
+        <div
+          className={`rounded-md p-3 text-sm font-medium ${
+            feedback.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {feedback.message}
+          <button
+            onClick={() => setFeedback(null)}
+            className="ml-3 font-bold hover:opacity-70"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Status tabs */}
       <div className="flex flex-wrap gap-2">
         {STATUS_TABS.map((tab) => (
