@@ -1,13 +1,28 @@
 import { listStagingEntries } from "@/lib/actions/staging";
+import {
+  listChartOfAccounts,
+  listCostCenters,
+  listBankAccounts,
+  listSuppliers,
+  listCustomers,
+  listPaymentMethods,
+} from "@/lib/actions/master-data";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { StagingClient } from "./client";
 
 export default async function StagingPage() {
-  const [entries, user] = await Promise.all([
-    listStagingEntries(),
-    getCurrentUser(),
-  ]);
+  const [entries, user, chartOfAccounts, costCenters, bankAccounts, suppliers, customers, paymentMethods] =
+    await Promise.all([
+      listStagingEntries(),
+      getCurrentUser(),
+      listChartOfAccounts(),
+      listCostCenters(),
+      listBankAccounts(),
+      listSuppliers(),
+      listCustomers(),
+      listPaymentMethods(),
+    ]);
 
   const counts: Record<string, number> = {
     ALL: entries.length,
@@ -59,6 +74,14 @@ export default async function StagingPage() {
         data={serializedEntries}
         statusCounts={counts}
         userRole={user.memberRole}
+        lookups={{
+          chartOfAccounts: chartOfAccounts.map((c) => ({ id: c.id, code: c.code, name: c.name })),
+          costCenters: costCenters.map((c) => ({ id: c.id, code: c.code, name: c.name })),
+          bankAccounts: bankAccounts.map((b) => ({ id: b.id, bankName: b.bankName, accountNumber: b.accountNumber })),
+          suppliers: suppliers.map((s) => ({ id: s.id, name: s.name })),
+          customers: customers.map((c) => ({ id: c.id, name: c.name })),
+          paymentMethods: paymentMethods.map((p) => ({ id: p.id, name: p.name })),
+        }}
       />
     </div>
   );

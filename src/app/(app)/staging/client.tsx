@@ -53,6 +53,15 @@ type StagingEntry = {
   costCenterId: string | null;
 };
 
+type Lookups = {
+  chartOfAccounts: { id: string; code: string; name: string }[];
+  costCenters: { id: string; code: string; name: string }[];
+  bankAccounts: { id: string; bankName: string; accountNumber: string }[];
+  suppliers: { id: string; name: string }[];
+  customers: { id: string; name: string }[];
+  paymentMethods: { id: string; name: string }[];
+};
+
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: "ALL", label: "Todos" },
   { key: "PENDING", label: "Pendentes" },
@@ -66,9 +75,10 @@ interface StagingClientProps {
   data: StagingEntry[];
   statusCounts: Record<string, number>;
   userRole: Role;
+  lookups: Lookups;
 }
 
-export function StagingClient({ data, statusCounts, userRole }: StagingClientProps) {
+export function StagingClient({ data, statusCounts, userRole, lookups }: StagingClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState("ALL");
@@ -150,6 +160,11 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
         counterpartName: (formData.get("counterpartName") as string) || null,
         chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
         costCenterId: (formData.get("costCenterId") as string) || null,
+        bankAccountId: (formData.get("bankAccountId") as string) || null,
+        supplierId: (formData.get("supplierId") as string) || null,
+        customerId: (formData.get("customerId") as string) || null,
+        paymentMethodId: (formData.get("paymentMethodId") as string) || null,
+        notes: (formData.get("notes") as string) || null,
       });
       setCreateOpen(false);
       router.refresh();
@@ -169,6 +184,11 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
         counterpartName: (formData.get("counterpartName") as string) || null,
         chartOfAccountId: (formData.get("chartOfAccountId") as string) || null,
         costCenterId: (formData.get("costCenterId") as string) || null,
+        bankAccountId: (formData.get("bankAccountId") as string) || null,
+        supplierId: (formData.get("supplierId") as string) || null,
+        customerId: (formData.get("customerId") as string) || null,
+        paymentMethodId: (formData.get("paymentMethodId") as string) || null,
+        notes: (formData.get("notes") as string) || null,
       });
       setEditOpen(false);
       setEditing(null);
@@ -370,7 +390,7 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo Lancamento Manual</DialogTitle>
           </DialogHeader>
@@ -403,6 +423,82 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
                 <label className="text-sm font-medium">Contrapartida</label>
                 <Input name="counterpartName" />
               </div>
+              <div className="col-span-2">
+                <label className="text-sm font-medium">Conta Contabil</label>
+                <select
+                  name="chartOfAccountId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.chartOfAccounts.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Centro de Custo</label>
+                <select
+                  name="costCenterId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.costCenters.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Conta Bancaria</label>
+                <select
+                  name="bankAccountId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.bankAccounts.map((b) => (
+                    <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Fornecedor</label>
+                <select
+                  name="supplierId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Cliente</label>
+                <select
+                  name="customerId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Forma de Pagamento</label>
+                <select
+                  name="paymentMethodId"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.paymentMethods.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-sm font-medium">Observacoes</label>
+                <Input name="notes" placeholder="Notas adicionais..." />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -418,7 +514,7 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Lancamento</DialogTitle>
           </DialogHeader>
@@ -469,6 +565,88 @@ export function StagingClient({ data, statusCounts, userRole }: StagingClientPro
                   name="counterpartName"
                   defaultValue={editing?.counterpartName ?? ""}
                 />
+              </div>
+              <div className="col-span-2">
+                <label className="text-sm font-medium">Conta Contabil</label>
+                <select
+                  name="chartOfAccountId"
+                  defaultValue={editing?.chartOfAccountId ?? ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.chartOfAccounts.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Centro de Custo</label>
+                <select
+                  name="costCenterId"
+                  defaultValue={editing?.costCenterId ?? ""}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.costCenters.map((c) => (
+                    <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Conta Bancaria</label>
+                <select
+                  name="bankAccountId"
+                  defaultValue=""
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.bankAccounts.map((b) => (
+                    <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Fornecedor</label>
+                <select
+                  name="supplierId"
+                  defaultValue=""
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Cliente</label>
+                <select
+                  name="customerId"
+                  defaultValue=""
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.customers.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Forma de Pagamento</label>
+                <select
+                  name="paymentMethodId"
+                  defaultValue=""
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione...</option>
+                  {lookups.paymentMethods.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="text-sm font-medium">Observacoes</label>
+                <Input name="notes" placeholder="Notas adicionais..." />
               </div>
             </div>
             <DialogFooter>
