@@ -85,11 +85,11 @@ export default async function ClosingPage() {
       ) : (
         <div className="space-y-2">
           {checklists.map((item) => (
-            <Card key={item.id} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+            <Card key={item.id} className="p-3 sm:p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                    className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs ${
                       item.status === "COMPLETED"
                         ? "bg-green-500 text-white"
                         : "bg-muted text-muted-foreground"
@@ -97,16 +97,16 @@ export default async function ClosingPage() {
                   >
                     {item.status === "COMPLETED" ? "✓" : "○"}
                   </div>
-                  <div>
-                    <p className="font-medium">{item.item}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm sm:text-base truncate">{item.item}</p>
                     {item.description && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                         {item.description}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 pl-8 sm:pl-0 shrink-0">
                   <span
                     className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                       CHECKLIST_STATUS_COLORS[item.status] ?? ""

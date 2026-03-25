@@ -67,34 +67,35 @@ export default async function StockPositionPage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-lg border p-4 text-center">
-          <p className="text-sm text-muted-foreground">Total de Produtos</p>
-          <p className="text-2xl font-bold">{enrichedProducts.length}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="rounded-lg border p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Total de Produtos</p>
+          <p className="text-lg sm:text-2xl font-bold">{enrichedProducts.length}</p>
         </div>
-        <div className="rounded-lg border p-4 text-center">
-          <p className="text-sm text-muted-foreground">Valor Total em Estoque</p>
-          <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
+        <div className="rounded-lg border p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Valor em Estoque</p>
+          <p className="text-lg sm:text-2xl font-bold">{formatCurrency(totalValue)}</p>
         </div>
-        <div className="rounded-lg border p-4 text-center">
-          <p className="text-sm text-muted-foreground">Abaixo do Minimo</p>
-          <p className="text-2xl font-bold text-red-600">{belowMinimum.length}</p>
+        <div className="rounded-lg border p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Abaixo do Minimo</p>
+          <p className="text-lg sm:text-2xl font-bold text-red-600">{belowMinimum.length}</p>
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-md border border-border">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-md border border-border min-w-[700px]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Codigo</th>
-              <th className="px-4 py-3 text-left font-medium">Produto</th>
-              <th className="px-4 py-3 text-left font-medium">Unidade</th>
-              <th className="px-4 py-3 text-right font-medium">Qtde Atual</th>
-              <th className="px-4 py-3 text-right font-medium">Qtde Minima</th>
-              <th className="px-4 py-3 text-right font-medium">Custo Medio</th>
-              <th className="px-4 py-3 text-right font-medium">Valor Total</th>
-              <th className="px-4 py-3 text-left font-medium">Situacao</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Codigo</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Produto</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Unid.</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Qtde Atual</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Qtde Min.</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Custo Medio</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Valor Total</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Situacao</th>
             </tr>
           </thead>
           <tbody>
@@ -115,24 +116,24 @@ export default async function StockPositionPage() {
                     key={product.id}
                     className={`border-b ${isBelowMin ? "bg-red-50" : ""}`}
                   >
-                    <td className="px-4 py-3 font-mono">{product.code}</td>
-                    <td className="px-4 py-3">{product.name}</td>
-                    <td className="px-4 py-3">{product.unit}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 font-mono">{product.code}</td>
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">{product.name}</td>
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">{product.unit}</td>
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                       {formatDecimal(product.currentStock)}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                       {product.minStock > 0
                         ? formatDecimal(product.minStock)
                         : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                       {formatCurrency(product.averageCost)}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">
                       {formatCurrency(totalVal)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       {isBelowMin ? (
                         <Badge className="bg-red-100 text-red-800">
                           Abaixo do minimo
@@ -153,6 +154,7 @@ export default async function StockPositionPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

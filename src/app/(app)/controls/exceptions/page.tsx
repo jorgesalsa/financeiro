@@ -156,22 +156,22 @@ export default async function ExceptionsPage() {
         description="Lancamentos com valores atipicos ou classificacao incompleta"
       />
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{exceptions.length}</p>
-          <p className="text-sm text-muted-foreground">Total de Excecoes</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{exceptions.length}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Total de Excecoes</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-orange-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-orange-600">
             {exceptions.filter((e) => e.severity === "HIGH" || e.severity === "CRITICAL").length}
           </p>
-          <p className="text-sm text-muted-foreground">Alta Severidade</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Alta Severidade</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-yellow-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-yellow-600">
             {exceptions.filter((e) => e.severity === "MEDIUM" || e.severity === "LOW").length}
           </p>
-          <p className="text-sm text-muted-foreground">Media/Baixa Severidade</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Media/Baixa</p>
         </Card>
       </div>
 
@@ -183,45 +183,47 @@ export default async function ExceptionsPage() {
           </p>
         </Card>
       ) : (
-        <div className="rounded-md border border-border">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-md border border-border min-w-[600px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">Severidade</th>
-                <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium">Descricao</th>
-                <th className="px-4 py-3 text-left font-medium">Origem</th>
-                <th className="px-4 py-3 text-left font-medium">Data</th>
-                <th className="px-4 py-3 text-right font-medium">Valor</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Severidade</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Tipo</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Descricao</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Origem</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Data</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Valor</th>
               </tr>
             </thead>
             <tbody>
               {exceptions.map((exc, idx) => (
                 <tr key={`${exc.id}-${idx}`} className="border-b">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <Badge className={SEVERITY_COLORS[exc.severity]}>
                       {SEVERITY_LABELS[exc.severity]}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 font-medium">{exc.type}</td>
-                  <td className="px-4 py-3 max-w-md truncate">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 font-medium whitespace-nowrap">{exc.type}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 max-w-md truncate">
                     {exc.description}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <Badge variant="outline">
                       {exc.source === "official" ? "Oficial" : "Staging"}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                     {exc.date ? formatDate(exc.date) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                     {exc.amount != null ? formatCurrency(exc.amount) : "—"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

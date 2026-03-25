@@ -54,14 +54,14 @@ export default async function KardexPage({
       />
 
       {/* Product selector */}
-      <Card className="p-4">
-        <form className="flex items-end gap-4">
-          <div>
+      <Card className="p-3 sm:p-4">
+        <form className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+          <div className="flex-1">
             <label className="text-sm font-medium">Produto</label>
             <select
               name="productId"
               defaultValue={productId ?? ""}
-              className="flex h-9 w-80 rounded-md border border-input bg-background px-3 py-1 text-sm"
+              className="flex h-9 w-full sm:w-80 rounded-md border border-input bg-background px-3 py-1 text-sm"
             >
               <option value="">Selecione um produto...</option>
               {products.map((p) => (
@@ -85,17 +85,18 @@ export default async function KardexPage({
           <h2 className="text-lg font-semibold">
             {selectedProduct.code} - {selectedProduct.name}
           </h2>
-          <div className="rounded-md border border-border">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="rounded-md border border-border min-w-[600px]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left font-medium">Data</th>
-                  <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium">Deposito</th>
-                  <th className="px-4 py-3 text-right font-medium">Quantidade</th>
-                  <th className="px-4 py-3 text-right font-medium">Custo Unit.</th>
-                  <th className="px-4 py-3 text-right font-medium">Custo Total</th>
-                  <th className="px-4 py-3 text-right font-medium">Saldo</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Data</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Tipo</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Deposito</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Qtde</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Custo Unit.</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Custo Total</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Saldo</th>
                 </tr>
               </thead>
               <tbody>
@@ -111,21 +112,21 @@ export default async function KardexPage({
                 ) : (
                   movements.map((mov: any) => (
                     <tr key={mov.id} className="border-b">
-                      <td className="px-4 py-3">{formatDate(mov.createdAt)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">{formatDate(mov.createdAt)}</td>
+                      <td className="px-3 py-2 sm:px-4 sm:py-3">
                         {MOVEMENT_TYPE_LABELS[mov.type] ?? mov.type}
                       </td>
-                      <td className="px-4 py-3">{mov.warehouse?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2 sm:px-4 sm:py-3">{mov.warehouse?.name ?? "—"}</td>
+                      <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                         {formatDecimal(mov.quantity)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                         {formatCurrency(mov.unitCost)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                         {formatCurrency(mov.totalCost)}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium">
+                      <td className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">
                         {formatDecimal(mov.balanceAfter)}
                       </td>
                     </tr>
@@ -133,6 +134,7 @@ export default async function KardexPage({
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       ) : (

@@ -195,7 +195,7 @@ export function ChartOfAccountsClient({
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Código *</label>
                 <Input
@@ -243,7 +243,7 @@ export function ChartOfAccountsClient({
                   ))}
                 </select>
               </div>
-              <div className="col-span-2 flex items-center gap-2">
+              <div className="sm:col-span-2 flex items-center gap-2">
                 <input
                   type="checkbox"
                   name="isAnalytic"

@@ -298,31 +298,31 @@ export function EntriesClient({
   return (
     <>
       {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-4">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2 sm:gap-4">
         <div>
-          <label className="text-sm font-medium">Data de</label>
+          <label className="text-xs sm:text-sm font-medium">Data de</label>
           <Input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
         <div>
-          <label className="text-sm font-medium">Data ate</label>
+          <label className="text-xs sm:text-sm font-medium">Data ate</label>
           <Input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40"
           />
         </div>
         <div>
-          <label className="text-sm font-medium">Categoria</label>
+          <label className="text-xs sm:text-sm font-medium">Categoria</label>
           <Select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40"
           >
             <option value="ALL">Todas</option>
             <option value="PAYABLE">A Pagar</option>
@@ -332,11 +332,11 @@ export function EntriesClient({
           </Select>
         </div>
         <div>
-          <label className="text-sm font-medium">Status</label>
+          <label className="text-xs sm:text-sm font-medium">Status</label>
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-40"
+            className="w-full sm:w-40"
           >
             <option value="ALL">Todos</option>
             <option value="OPEN">Em aberto</option>
@@ -348,6 +348,7 @@ export function EntriesClient({
         <Button
           variant="outline"
           size="sm"
+          className="col-span-2 sm:col-span-1"
           onClick={() => {
             setStatusFilter("ALL");
             setCategoryFilter("ALL");
@@ -379,7 +380,7 @@ export function EntriesClient({
                 ? formatCurrency(settlingEntry.amount - settlingEntry.paidAmount)
                 : ""}
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Valor *</label>
                 <Input
@@ -461,7 +462,7 @@ export function EntriesClient({
               {installmentEntry?.description} —{" "}
               {installmentEntry ? formatCurrency(installmentEntry.amount) : ""}
             </p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Numero de Parcelas *</label>
                 <Input

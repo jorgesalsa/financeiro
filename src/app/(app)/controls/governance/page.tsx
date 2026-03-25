@@ -59,24 +59,24 @@ export default async function GovernancePage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{members.length}</p>
-          <p className="text-sm text-muted-foreground">Usuarios Ativos</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{members.length}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Usuarios Ativos</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">
             {periodLocks.length}
           </p>
-          <p className="text-sm text-muted-foreground">Periodos Bloqueados</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Periodos Bloqueados</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{recentActivity.length}</p>
-          <p className="text-sm text-muted-foreground">Atividades Recentes</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{recentActivity.length}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Atividades Recentes</p>
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Role Distribution */}
         <Card className="p-4">
           <h3 className="font-semibold mb-4">Distribuicao de Papeis</h3>
@@ -161,14 +161,15 @@ export default async function GovernancePage() {
       {/* Recent Activity */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Atividade Recente</h2>
-        <div className="rounded-md border border-border">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-md border border-border min-w-[450px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">Data/Hora</th>
-                <th className="px-4 py-3 text-left font-medium">Usuario</th>
-                <th className="px-4 py-3 text-left font-medium">Acao</th>
-                <th className="px-4 py-3 text-left font-medium">Tabela</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium whitespace-nowrap">Data/Hora</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Usuario</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Acao</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Tabela</th>
               </tr>
             </thead>
             <tbody>
@@ -181,14 +182,14 @@ export default async function GovernancePage() {
               ) : (
                 recentActivity.map((log) => (
                   <tr key={log.id} className="border-b">
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                       {formatDateTime(log.createdAt)}
                     </td>
-                    <td className="px-4 py-3">{log.userEmail}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">{log.userEmail}</td>
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       <Badge variant="outline">{log.action}</Badge>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 font-mono text-xs">
                       {log.tableName}
                     </td>
                   </tr>
@@ -196,6 +197,7 @@ export default async function GovernancePage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

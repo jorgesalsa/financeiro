@@ -48,20 +48,20 @@ export function KpiCard({
 
   return (
     <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold tracking-tight">{value}</p>
+      <CardContent className="p-3 sm:p-6">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-0.5 sm:space-y-1 min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</p>
+            <p className="text-base sm:text-2xl font-bold tracking-tight truncate">{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-1">{subtitle}</p>
             )}
             {trend && (
-              <div className="flex items-center gap-1 text-xs">
+              <div className="flex items-center gap-1 text-[10px] sm:text-xs">
                 {trend.value >= 0 ? (
-                  <TrendingUp className="h-3 w-3 text-emerald-500" />
+                  <TrendingUp className="h-3 w-3 shrink-0 text-emerald-500" />
                 ) : (
-                  <TrendingDown className="h-3 w-3 text-red-500" />
+                  <TrendingDown className="h-3 w-3 shrink-0 text-red-500" />
                 )}
                 <span
                   className={cn(
@@ -74,13 +74,13 @@ export function KpiCard({
                   {trend.value >= 0 ? "+" : ""}
                   {trend.value.toFixed(1)}%
                 </span>
-                <span className="text-muted-foreground">{trend.label}</span>
+                <span className="text-muted-foreground hidden sm:inline">{trend.label}</span>
               </div>
             )}
           </div>
           <div
             className={cn(
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
+              "hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-lg",
               styles.iconBg
             )}
           >

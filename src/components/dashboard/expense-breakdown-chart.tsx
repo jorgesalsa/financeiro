@@ -93,7 +93,7 @@ export function ExpenseBreakdownChart({ data }: ExpenseBreakdownChartProps) {
           <CardTitle className="text-base">Despesas por Categoria</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[220px] sm:h-[300px] items-center justify-center text-sm text-muted-foreground">
             Nenhum dado disponivel para o periodo
           </div>
         </CardContent>
@@ -107,7 +107,7 @@ export function ExpenseBreakdownChart({ data }: ExpenseBreakdownChartProps) {
         <CardTitle className="text-base">Despesas por Categoria</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[220px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -116,8 +116,8 @@ export function ExpenseBreakdownChart({ data }: ExpenseBreakdownChartProps) {
                 cy="50%"
                 labelLine={false}
                 label={renderCustomLabel}
-                outerRadius={100}
-                innerRadius={40}
+                outerRadius={80}
+                innerRadius={30}
                 dataKey="value"
                 paddingAngle={2}
               >
@@ -130,10 +130,10 @@ export function ExpenseBreakdownChart({ data }: ExpenseBreakdownChartProps) {
               </Pie>
               <Tooltip content={<CustomTooltip />} />
               <Legend
-                layout="vertical"
-                align="right"
-                verticalAlign="middle"
-                wrapperStyle={{ fontSize: "12px", paddingLeft: "16px" }}
+                layout="horizontal"
+                align="center"
+                verticalAlign="bottom"
+                wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                 iconType="circle"
                 iconSize={8}
                 formatter={(value: string) => (

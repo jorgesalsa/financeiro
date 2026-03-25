@@ -52,7 +52,7 @@ export default async function SettingsGeneralPage() {
       {/* Tenant Info */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Informacoes da Empresa</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <label className="text-sm text-muted-foreground">Nome</label>
             <p className="font-medium">{tenant?.name ?? "—"}</p>
@@ -82,41 +82,42 @@ export default async function SettingsGeneralPage() {
             Nenhuma regra de classificacao cadastrada.
           </p>
         ) : (
-          <div className="rounded-md border border-border">
+          <div className="overflow-x-auto -mx-4 sm:mx-0">
+            <div className="rounded-md border border-border min-w-[600px]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-3 text-left font-medium">Prioridade</th>
-                  <th className="px-4 py-3 text-left font-medium">Campo</th>
-                  <th className="px-4 py-3 text-left font-medium">Padrao</th>
-                  <th className="px-4 py-3 text-left font-medium">Conta Contabil</th>
-                  <th className="px-4 py-3 text-left font-medium">Centro Custo</th>
-                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Prio</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Campo</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Padrao</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Conta</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">CC</th>
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {classificationRules.map((rule) => (
                   <tr key={rule.id} className="border-b">
-                    <td className="px-4 py-3">{rule.priority}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">{rule.priority}</td>
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       <Badge variant="outline">
                         {CLASSIFICATION_FIELD_LABELS[rule.field] ?? rule.field}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 font-mono text-xs">
                       {rule.pattern}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       {rule.chartOfAccount
-                        ? `${rule.chartOfAccount.code} - ${rule.chartOfAccount.name}`
+                        ? `${rule.chartOfAccount.code}`
                         : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       {rule.costCenter
-                        ? `${rule.costCenter.code} - ${rule.costCenter.name}`
+                        ? `${rule.costCenter.code}`
                         : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3">
                       <Badge variant={rule.active ? "default" : "secondary"}>
                         {rule.active ? "Ativo" : "Inativo"}
                       </Badge>
@@ -125,6 +126,7 @@ export default async function SettingsGeneralPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </Card>
@@ -137,7 +139,7 @@ export default async function SettingsGeneralPage() {
             Nenhum periodo gerenciado.
           </p>
         ) : (
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {periodLocks.map((lock) => (
               <div
                 key={lock.id}

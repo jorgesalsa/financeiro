@@ -69,12 +69,12 @@ export default async function FinancialCalendarPage() {
               .reduce((sum, e) => sum + (Number(e.amount) - Number(e.paidAmount ?? 0)), 0);
 
             return (
-              <Card key={dateKey} className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-lg">
+              <Card key={dateKey} className="p-3 sm:p-4">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between mb-3">
+                  <h3 className="font-semibold text-base sm:text-lg">
                     {dateKey !== "sem-data" ? formatDate(dateKey) : "Sem data"}
                   </h3>
-                  <div className="flex gap-4 text-sm">
+                  <div className="flex gap-3 sm:gap-4 text-xs sm:text-sm">
                     {totalPayable > 0 && (
                       <span className="text-red-600">
                         Saidas: {formatCurrency(totalPayable)}
@@ -91,25 +91,25 @@ export default async function FinancialCalendarPage() {
                   {items.map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between py-2 px-2 rounded hover:bg-muted/50"
+                      className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between py-2 px-2 rounded hover:bg-muted/50"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <Badge
                           variant="outline"
-                          className={
+                          className={`shrink-0 ${
                             entry.category === "PAYABLE"
                               ? "text-red-600 border-red-200"
                               : "text-green-600 border-green-200"
-                          }
+                          }`}
                         >
                           {entry.category === "PAYABLE" ? "Pagar" : "Receber"}
                         </Badge>
-                        <span className="text-sm">{entry.description}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm truncate">{entry.description}</span>
+                        <span className="text-xs text-muted-foreground hidden sm:inline">
                           {entry.supplier?.name ?? entry.customer?.name ?? ""}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 pl-6 sm:pl-0 shrink-0">
                         <span
                           className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                             ENTRY_STATUS_COLORS[entry.status as EntryStatus]
@@ -117,7 +117,7 @@ export default async function FinancialCalendarPage() {
                         >
                           {ENTRY_STATUS_LABELS[entry.status as EntryStatus]}
                         </span>
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-sm whitespace-nowrap">
                           {formatCurrency(Number(entry.amount) - Number(entry.paidAmount ?? 0))}
                         </span>
                       </div>

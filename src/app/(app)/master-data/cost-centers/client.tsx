@@ -145,7 +145,7 @@ export function CostCentersClient({ data }: { data: CostCenter[] }) {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Código *</label>
                 <Input
@@ -162,7 +162,7 @@ export function CostCentersClient({ data }: { data: CostCenter[] }) {
                   required
                 />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">
                   Centro de Custo Pai
                 </label>

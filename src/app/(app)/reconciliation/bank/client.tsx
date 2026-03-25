@@ -105,33 +105,33 @@ export function BankReconciliationClient({
   return (
     <>
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{stats.total}</p>
-          <p className="text-sm text-muted-foreground">Total de Linhas</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{stats.total}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Total de Linhas</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-green-600">{stats.reconciled}</p>
-          <p className="text-sm text-muted-foreground">Conciliadas</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-green-600">{stats.reconciled}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Conciliadas</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
-          <p className="text-sm text-muted-foreground">Pendentes</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-yellow-600">{stats.pending}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Pendentes</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{stats.percentage}%</p>
-          <p className="text-sm text-muted-foreground">Conciliado</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{stats.percentage}%</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Conciliado</p>
         </Card>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
         <div>
-          <label className="text-sm font-medium">Conta Bancaria</label>
+          <label className="text-xs sm:text-sm font-medium">Conta Bancaria</label>
           <Select
             value={selectedBankAccount}
             onChange={(e) => setSelectedBankAccount(e.target.value)}
-            className="w-64"
+            className="w-full sm:w-64"
           >
             <option value="ALL">Todas as Contas</option>
             {bankAccounts.map((ba) => (
@@ -141,20 +141,22 @@ export function BankReconciliationClient({
             ))}
           </Select>
         </div>
-        <Button onClick={handleAutoReconcile} disabled={isPending}>
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {isPending ? "Conciliando..." : "Conciliacao Automatica"}
-        </Button>
-        {selectedLine && selectedEntry && (
-          <Button onClick={handleManualReconcile} disabled={isPending} variant="outline">
-            <Link2 className="mr-2 h-4 w-4" />
-            Conciliar Selecionados
+        <div className="flex gap-2">
+          <Button onClick={handleAutoReconcile} disabled={isPending} size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            {isPending ? "Conciliando..." : "Auto Conciliar"}
           </Button>
-        )}
+          {selectedLine && selectedEntry && (
+            <Button onClick={handleManualReconcile} disabled={isPending} variant="outline" size="sm">
+              <Link2 className="mr-2 h-4 w-4" />
+              Conciliar
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Split view */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left: Bank statement lines */}
         <Card className="p-4">
           <h3 className="font-semibold mb-3">

@@ -79,7 +79,7 @@ export function BankStatementImportClient({
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Conta Bancária *</label>
                 <Select name="bankAccountId" required>
@@ -132,8 +132,8 @@ export function BankStatementImportClient({
           {batches.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma importação realizada.</p>
           ) : (
-            <div className="overflow-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b">
                     <th className="p-2 text-left font-medium">Arquivo</th>

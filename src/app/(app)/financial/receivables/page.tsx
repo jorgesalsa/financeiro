@@ -30,17 +30,17 @@ export default async function ReceivablesPage() {
         title="Contas a Receber"
         description="Lancamentos de contas a receber"
       />
-      <div className="rounded-md border border-border">
-        <table className="w-full text-sm">
+      <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
+        <table className="w-full text-sm min-w-[700px]">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Vencimento</th>
-              <th className="px-4 py-3 text-left font-medium">Descricao</th>
-              <th className="px-4 py-3 text-left font-medium">Cliente</th>
-              <th className="px-4 py-3 text-left font-medium">Conta</th>
-              <th className="px-4 py-3 text-right font-medium">Valor</th>
-              <th className="px-4 py-3 text-right font-medium">Recebido</th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Vencimento</th>
+              <th className="px-3 py-2 text-left font-medium">Descricao</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Cliente</th>
+              <th className="px-3 py-2 text-left font-medium">Conta</th>
+              <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Valor</th>
+              <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Recebido</th>
+              <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -53,21 +53,19 @@ export default async function ReceivablesPage() {
             ) : (
               entries.map((entry) => (
                 <tr key={entry.id} className="border-b">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 whitespace-nowrap">
                     {entry.dueDate ? formatDate(entry.dueDate) : "—"}
                   </td>
-                  <td className="px-4 py-3">{entry.description}</td>
-                  <td className="px-4 py-3">{entry.customer?.name ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    {entry.chartOfAccount
-                      ? `${entry.chartOfAccount.code} - ${entry.chartOfAccount.name}`
-                      : "—"}
+                  <td className="px-3 py-2 max-w-[200px] truncate">{entry.description}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{entry.customer?.name ?? "—"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {entry.chartOfAccount ? entry.chartOfAccount.code : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(Number(entry.amount))}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(Number(entry.paidAmount ?? 0))}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(Number(entry.amount))}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(Number(entry.paidAmount ?? 0))}</td>
+                  <td className="px-3 py-2">
                     <span
-                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${
                         ENTRY_STATUS_COLORS[entry.status as EntryStatus]
                       }`}
                     >

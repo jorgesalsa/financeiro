@@ -164,7 +164,7 @@ export function SuppliersClient({ data }: { data: Supplier[] }) {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Nome *</label>
                 <Input
@@ -206,7 +206,7 @@ export function SuppliersClient({ data }: { data: Supplier[] }) {
                 <label className="text-sm font-medium">Telefone</label>
                 <Input name="phone" defaultValue={editing?.phone ?? ""} />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Endereço</label>
                 <Input name="address" />
               </div>

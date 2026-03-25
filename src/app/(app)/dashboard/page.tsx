@@ -18,20 +18,20 @@ import {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-[120px] animate-pulse rounded-lg border border-border bg-card"
+            className="h-[100px] sm:h-[120px] animate-pulse rounded-lg border border-border bg-card"
           />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-[380px] animate-pulse rounded-lg border border-border bg-card"
+            className="h-[280px] sm:h-[380px] animate-pulse rounded-lg border border-border bg-card"
           />
         ))}
       </div>
@@ -57,7 +57,7 @@ async function DashboardContent() {
   return (
     <>
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Total Receitas"
           value={formatCurrency(kpis.totalReceitas)}
@@ -105,7 +105,7 @@ async function DashboardContent() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
         <RevenueExpenseChart data={revenueExpense} />
         <CashFlowChart data={cashFlow} />
         <ExpenseBreakdownChart data={expenseBreakdown} />

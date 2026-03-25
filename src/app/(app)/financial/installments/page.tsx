@@ -53,16 +53,16 @@ export default async function InstallmentsPage() {
             items[0]?.supplier?.name ?? items[0]?.customer?.name ?? "—";
 
           return (
-            <Card key={groupId} className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold">{items[0]?.description}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {counterpart} — {settled}/{items.length} parcelas pagas —{" "}
+            <Card key={groupId} className="p-3 sm:p-4 space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm sm:text-base truncate">{items[0]?.description}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {counterpart} — {settled}/{items.length} pagas —{" "}
                     {formatCurrency(paid)} / {formatCurrency(total)}
                   </p>
                 </div>
-                <div className="w-32 h-2 rounded-full bg-muted overflow-hidden">
+                <div className="w-full sm:w-32 h-2 rounded-full bg-muted overflow-hidden shrink-0">
                   <div
                     className="h-full bg-green-500 rounded-full"
                     style={{
@@ -71,7 +71,8 @@ export default async function InstallmentsPage() {
                   />
                 </div>
               </div>
-              <div className="rounded-md border">
+              <div className="overflow-x-auto -mx-3 sm:mx-0">
+                <div className="rounded-md border min-w-[400px]">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
@@ -110,6 +111,7 @@ export default async function InstallmentsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </Card>
           );

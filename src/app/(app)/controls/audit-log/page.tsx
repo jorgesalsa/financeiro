@@ -63,13 +63,13 @@ export default async function AuditLogPage({
       />
 
       {/* Filters */}
-      <form className="flex flex-wrap items-end gap-4">
+      <form className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
         <div>
           <label className="text-sm font-medium">Tabela</label>
           <select
             name="tableName"
             defaultValue={params.tableName ?? ""}
-            className="flex h-9 w-48 rounded-md border border-input bg-background px-3 py-1 text-sm"
+            className="flex h-9 w-full sm:w-48 rounded-md border border-input bg-background px-3 py-1 text-sm"
           >
             <option value="">Todas</option>
             {tableNames.map((t) => (
@@ -84,7 +84,7 @@ export default async function AuditLogPage({
           <select
             name="action"
             defaultValue={params.action ?? ""}
-            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
+            className="flex h-9 w-full sm:w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
           >
             <option value="">Todas</option>
             <option value="CREATE">Criacao</option>
@@ -98,7 +98,7 @@ export default async function AuditLogPage({
             type="date"
             name="dateFrom"
             defaultValue={params.dateFrom ?? ""}
-            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
+            className="flex h-9 w-full sm:w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
           />
         </div>
         <div>
@@ -107,27 +107,28 @@ export default async function AuditLogPage({
             type="date"
             name="dateTo"
             defaultValue={params.dateTo ?? ""}
-            className="flex h-9 w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
+            className="flex h-9 w-full sm:w-40 rounded-md border border-input bg-background px-3 py-1 text-sm"
           />
         </div>
         <button
           type="submit"
-          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+          className="col-span-2 sm:col-span-1 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
         >
           Filtrar
         </button>
       </form>
 
       {/* Table */}
-      <div className="rounded-md border border-border">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-md border border-border min-w-[500px]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Data/Hora</th>
-              <th className="px-4 py-3 text-left font-medium">Usuario</th>
-              <th className="px-4 py-3 text-left font-medium">Tabela</th>
-              <th className="px-4 py-3 text-left font-medium">Acao</th>
-              <th className="px-4 py-3 text-left font-medium">Registro</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium whitespace-nowrap">Data/Hora</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Usuario</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Tabela</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Acao</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Registro</th>
             </tr>
           </thead>
           <tbody>
@@ -140,12 +141,12 @@ export default async function AuditLogPage({
             ) : (
               logs.map((log) => (
                 <tr key={log.id} className="border-b">
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                     {formatDateTime(log.createdAt)}
                   </td>
-                  <td className="px-4 py-3">{log.userEmail}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{log.tableName}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">{log.userEmail}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 font-mono text-xs">{log.tableName}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <span
                       className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                         ACTION_COLORS[log.action] ?? ""
@@ -154,7 +155,7 @@ export default async function AuditLogPage({
                       {ACTION_LABELS[log.action] ?? log.action}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 font-mono text-xs">
                     {log.recordId.substring(0, 8)}...
                   </td>
                 </tr>
@@ -162,6 +163,7 @@ export default async function AuditLogPage({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

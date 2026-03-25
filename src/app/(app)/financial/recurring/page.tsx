@@ -34,16 +34,17 @@ export default async function RecurringPage() {
         title="Lancamentos Recorrentes"
         description="Regras de lancamentos recorrentes automaticos"
       />
-      <div className="rounded-md border border-border">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-md border border-border min-w-[600px]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Nome</th>
-              <th className="px-4 py-3 text-right font-medium">Valor</th>
-              <th className="px-4 py-3 text-left font-medium">Frequencia</th>
-              <th className="px-4 py-3 text-left font-medium">Proxima Geracao</th>
-              <th className="px-4 py-3 text-left font-medium">Conta</th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Nome</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Valor</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Frequencia</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium whitespace-nowrap">Proxima Geracao</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Conta</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -56,24 +57,24 @@ export default async function RecurringPage() {
             ) : (
               rules.map((rule) => (
                 <tr key={rule.id} className="border-b">
-                  <td className="px-4 py-3 font-medium">{rule.name}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(Number(rule.amount))}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 font-medium">{rule.name}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">{formatCurrency(Number(rule.amount))}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <Badge variant="outline">
                       {FREQUENCY_LABELS[rule.frequency] ?? rule.frequency}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">
                     {rule.nextGenerationDate
                       ? formatDate(rule.nextGenerationDate)
                       : "—"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     {rule.chartOfAccount
-                      ? `${rule.chartOfAccount.code} - ${rule.chartOfAccount.name}`
+                      ? `${rule.chartOfAccount.code}`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <Badge variant={rule.active ? "default" : "secondary"}>
                       {rule.active ? "Ativo" : "Inativo"}
                     </Badge>
@@ -83,6 +84,7 @@ export default async function RecurringPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -79,16 +79,16 @@ export default async function AgingPage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Total Pagar Vencido</p>
-          <p className="text-2xl font-bold text-red-600">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Total Pagar Vencido</p>
+          <p className="text-lg sm:text-2xl font-bold text-red-600">
             {formatCurrency(totalPayableOverdue)}
           </p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Total Receber Vencido</p>
-          <p className="text-2xl font-bold text-orange-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Total Receber Vencido</p>
+          <p className="text-lg sm:text-2xl font-bold text-orange-600">
             {formatCurrency(totalReceivableOverdue)}
           </p>
         </Card>
@@ -96,73 +96,77 @@ export default async function AgingPage() {
 
       {/* Payables Aging */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Contas a Pagar</h2>
-        <div className="rounded-md border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                {BUCKETS.map((b) => (
-                  <th key={b.label} className="px-4 py-3 text-right font-medium">
-                    {b.label}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                {payableBuckets.map((b) => (
-                  <td key={b.label} className="px-4 py-3 text-right">
-                    <div>{formatCurrency(b.total)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {b.count} titulo(s)
-                    </div>
+        <h2 className="text-base sm:text-lg font-semibold mb-3">Contas a Pagar</h2>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-md border border-border min-w-[500px]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  {BUCKETS.map((b) => (
+                    <th key={b.label} className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">
+                      {b.label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  {payableBuckets.map((b) => (
+                    <td key={b.label} className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
+                      <div>{formatCurrency(b.total)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {b.count} titulo(s)
+                      </div>
+                    </td>
+                  ))}
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right font-bold whitespace-nowrap">
+                    {formatCurrency(
+                      payableBuckets.reduce((sum, b) => sum + b.total, 0)
+                    )}
                   </td>
-                ))}
-                <td className="px-4 py-3 text-right font-bold">
-                  {formatCurrency(
-                    payableBuckets.reduce((sum, b) => sum + b.total, 0)
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {/* Receivables Aging */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Contas a Receber</h2>
-        <div className="rounded-md border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                {BUCKETS.map((b) => (
-                  <th key={b.label} className="px-4 py-3 text-right font-medium">
-                    {b.label}
-                  </th>
-                ))}
-                <th className="px-4 py-3 text-right font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b">
-                {receivableBuckets.map((b) => (
-                  <td key={b.label} className="px-4 py-3 text-right">
-                    <div>{formatCurrency(b.total)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {b.count} titulo(s)
-                    </div>
+        <h2 className="text-base sm:text-lg font-semibold mb-3">Contas a Receber</h2>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-md border border-border min-w-[500px]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  {BUCKETS.map((b) => (
+                    <th key={b.label} className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">
+                      {b.label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  {receivableBuckets.map((b) => (
+                    <td key={b.label} className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
+                      <div>{formatCurrency(b.total)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {b.count} titulo(s)
+                      </div>
+                    </td>
+                  ))}
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right font-bold whitespace-nowrap">
+                    {formatCurrency(
+                      receivableBuckets.reduce((sum, b) => sum + b.total, 0)
+                    )}
                   </td>
-                ))}
-                <td className="px-4 py-3 text-right font-bold">
-                  {formatCurrency(
-                    receivableBuckets.reduce((sum, b) => sum + b.total, 0)
-                  )}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

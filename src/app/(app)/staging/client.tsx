@@ -466,7 +466,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
             <DialogTitle>Novo Lancamento Manual</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Data *</label>
                 <Input name="date" type="date" required />
@@ -482,7 +482,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   <option value="CREDIT">Credito</option>
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Descricao *</label>
                 <Input name="description" required />
               </div>
@@ -494,7 +494,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Contrapartida</label>
                 <Input name="counterpartName" />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Conta Contabil</label>
                 <select
                   name="chartOfAccountId"
@@ -566,7 +566,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   ))}
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Observacoes</label>
                 <Input name="notes" placeholder="Notas adicionais..." />
               </div>
@@ -590,7 +590,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
             <DialogTitle>Editar Lancamento</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Data *</label>
                 <Input
@@ -616,7 +616,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   <option value="CREDIT">Credito</option>
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Descricao *</label>
                 <Input name="description" defaultValue={editing?.description ?? ""} required />
               </div>
@@ -637,7 +637,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   defaultValue={editing?.counterpartName ?? ""}
                 />
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Conta Contabil</label>
                 <select
                   name="chartOfAccountId"
@@ -715,7 +715,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   ))}
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Observacoes</label>
                 <Input name="notes" placeholder="Notas adicionais..." />
               </div>

@@ -97,23 +97,23 @@ export default async function IncomeStatementPage() {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Receita Total</p>
-          <p className="text-2xl font-bold text-green-600">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Receita Total</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-600">
             {formatCurrency(totalRevenue)}
           </p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Despesa Total</p>
-          <p className="text-2xl font-bold text-red-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Despesa Total</p>
+          <p className="text-lg sm:text-2xl font-bold text-red-600">
             {formatCurrency(totalExpense)}
           </p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Resultado Liquido</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Resultado Liquido</p>
           <p
-            className={`text-2xl font-bold ${
+            className={`text-lg sm:text-2xl font-bold ${
               netIncome >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
@@ -123,7 +123,7 @@ export default async function IncomeStatementPage() {
       </div>
 
       {/* DRE Table */}
-      <div className="rounded-md border border-border overflow-x-auto">
+      <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">

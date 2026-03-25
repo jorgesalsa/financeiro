@@ -54,7 +54,7 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
           <CardTitle className="text-base">Fluxo de Caixa</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[220px] sm:h-[300px] items-center justify-center text-sm text-muted-foreground">
             Nenhum dado disponivel para o periodo
           </div>
         </CardContent>
@@ -68,11 +68,11 @@ export function CashFlowChart({ data }: CashFlowChartProps) {
         <CardTitle className="text-base">Fluxo de Caixa</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[220px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data}
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+              margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
             >
               <defs>
                 <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">

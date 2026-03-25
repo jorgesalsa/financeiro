@@ -104,14 +104,14 @@ export default async function CashFlowPage() {
         description="Realizado (30 dias) e Projetado (60 dias)"
       />
 
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Saldo Atual</p>
-          <p className="text-2xl font-bold">{formatCurrency(currentBalance)}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Saldo Atual</p>
+          <p className="text-lg sm:text-2xl font-bold">{formatCurrency(currentBalance)}</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Total Projetado Entradas</p>
-          <p className="text-2xl font-bold text-green-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Projetado Entradas</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-600">
             {formatCurrency(
               Array.from(projectedByDate.values()).reduce(
                 (sum, d) => sum + d.inflow,
@@ -120,9 +120,9 @@ export default async function CashFlowPage() {
             )}
           </p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-sm text-muted-foreground">Total Projetado Saidas</p>
-          <p className="text-2xl font-bold text-red-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Projetado Saidas</p>
+          <p className="text-lg sm:text-2xl font-bold text-red-600">
             {formatCurrency(
               Array.from(projectedByDate.values()).reduce(
                 (sum, d) => sum + d.outflow,
@@ -139,14 +139,14 @@ export default async function CashFlowPage() {
           <Badge variant="outline" className="mr-2">Realizado</Badge>
           Ultimos 30 dias
         </h2>
-        <div className="rounded-md border border-border">
-          <table className="w-full text-sm">
+        <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[400px]">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">Data</th>
-                <th className="px-4 py-3 text-right font-medium">Entradas</th>
-                <th className="px-4 py-3 text-right font-medium">Saidas</th>
-                <th className="px-4 py-3 text-right font-medium">Saldo Dia</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Data</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Entradas</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Saidas</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Saldo Dia</th>
               </tr>
             </thead>
             <tbody>
@@ -186,14 +186,14 @@ export default async function CashFlowPage() {
           <Badge variant="outline" className="mr-2">Projetado</Badge>
           Proximos 60 dias
         </h2>
-        <div className="rounded-md border border-border">
-          <table className="w-full text-sm">
+        <div className="rounded-md border border-border overflow-x-auto -mx-4 sm:mx-0">
+          <table className="w-full text-sm min-w-[400px]">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-4 py-3 text-left font-medium">Data</th>
-                <th className="px-4 py-3 text-right font-medium">Entradas</th>
-                <th className="px-4 py-3 text-right font-medium">Saidas</th>
-                <th className="px-4 py-3 text-right font-medium">Saldo Dia</th>
+                <th className="px-3 py-2 text-left font-medium whitespace-nowrap">Data</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Entradas</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Saidas</th>
+                <th className="px-3 py-2 text-right font-medium whitespace-nowrap">Saldo Dia</th>
               </tr>
             </thead>
             <tbody>

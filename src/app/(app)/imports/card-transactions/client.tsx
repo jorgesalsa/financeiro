@@ -113,8 +113,8 @@ export function CardTransactionImportClient({ batches }: { batches: ImportBatch[
           {batches.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma importação realizada.</p>
           ) : (
-            <div className="overflow-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="w-full text-sm min-w-[500px]">
                 <thead>
                   <tr className="border-b">
                     <th className="p-2 text-left font-medium">Arquivo</th>

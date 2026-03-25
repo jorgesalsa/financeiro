@@ -38,18 +38,19 @@ export default async function MovementsPage() {
         title="Movimentacoes de Estoque"
         description="Historico de entradas, saidas, ajustes e transferencias"
       />
-      <div className="rounded-md border border-border">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-md border border-border min-w-[700px]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Data</th>
-              <th className="px-4 py-3 text-left font-medium">Produto</th>
-              <th className="px-4 py-3 text-left font-medium">Deposito</th>
-              <th className="px-4 py-3 text-left font-medium">Tipo</th>
-              <th className="px-4 py-3 text-right font-medium">Quantidade</th>
-              <th className="px-4 py-3 text-right font-medium">Custo Unit.</th>
-              <th className="px-4 py-3 text-right font-medium">Custo Total</th>
-              <th className="px-4 py-3 text-right font-medium">Saldo</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Data</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Produto</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Deposito</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Tipo</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Qtde</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Custo Unit.</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">Custo Total</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Saldo</th>
             </tr>
           </thead>
           <tbody>
@@ -62,14 +63,14 @@ export default async function MovementsPage() {
             ) : (
               movements.map((mov) => (
                 <tr key={mov.id} className="border-b">
-                  <td className="px-4 py-3">{formatDate(mov.createdAt)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">{formatDate(mov.createdAt)}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     {mov.product
                       ? `${mov.product.code} - ${mov.product.name}`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3">{mov.warehouse?.name ?? "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">{mov.warehouse?.name ?? "—"}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <span
                       className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                         MOVEMENT_TYPE_COLORS[mov.type] ?? ""
@@ -78,16 +79,16 @@ export default async function MovementsPage() {
                       {MOVEMENT_TYPE_LABELS[mov.type] ?? mov.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                     {formatDecimal(Number(mov.quantity))}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                     {formatCurrency(Number(mov.unitCost))}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">
                     {formatCurrency(Number(mov.totalCost))}
                   </td>
-                  <td className="px-4 py-3 text-right font-medium">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium whitespace-nowrap">
                     {formatDecimal(Number(mov.balanceAfter))}
                   </td>
                 </tr>
@@ -95,6 +96,7 @@ export default async function MovementsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

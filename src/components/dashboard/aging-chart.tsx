@@ -55,7 +55,7 @@ export function AgingChart({ data }: AgingChartProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-[220px] sm:h-[300px] items-center justify-center text-sm text-muted-foreground">
             Nenhum dado disponivel para o periodo
           </div>
         </CardContent>
@@ -71,11 +71,11 @@ export function AgingChart({ data }: AgingChartProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[220px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={data}
-              margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+              margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis

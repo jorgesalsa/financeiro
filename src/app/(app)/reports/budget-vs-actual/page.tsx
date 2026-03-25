@@ -122,17 +122,18 @@ export default async function BudgetVsActualPage() {
           </p>
         </Card>
       ) : (
-        <div className="rounded-md border border-border overflow-x-auto">
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="rounded-md border border-border min-w-[500px]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-3 py-3 text-left font-medium sticky left-0 bg-muted/50">
+                <th className="px-3 py-2 sm:py-3 text-left font-medium sticky left-0 bg-muted/50 whitespace-nowrap">
                   Conta
                 </th>
-                <th className="px-3 py-3 text-right font-medium">Orcado Total</th>
-                <th className="px-3 py-3 text-right font-medium">Realizado Total</th>
-                <th className="px-3 py-3 text-right font-medium">Variacao</th>
-                <th className="px-3 py-3 text-right font-medium">%</th>
+                <th className="px-3 py-2 sm:py-3 text-right font-medium whitespace-nowrap">Orcado</th>
+                <th className="px-3 py-2 sm:py-3 text-right font-medium whitespace-nowrap">Realizado</th>
+                <th className="px-3 py-2 sm:py-3 text-right font-medium whitespace-nowrap">Variacao</th>
+                <th className="px-3 py-2 sm:py-3 text-right font-medium">%</th>
               </tr>
             </thead>
             <tbody>
@@ -146,23 +147,23 @@ export default async function BudgetVsActualPage() {
 
                 return (
                   <tr key={row.code} className="border-b">
-                    <td className="px-3 py-3 sticky left-0 bg-background">
+                    <td className="px-3 py-2 sm:py-3 sticky left-0 bg-background whitespace-nowrap">
                       {row.code} - {row.name}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-2 sm:py-3 text-right whitespace-nowrap">
                       {formatCurrency(row.totalBudget)}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-2 sm:py-3 text-right whitespace-nowrap">
                       {formatCurrency(row.totalActual)}
                     </td>
                     <td
-                      className={`px-3 py-3 text-right font-medium ${
+                      className={`px-3 py-2 sm:py-3 text-right font-medium whitespace-nowrap ${
                         isOver || isUnder ? "text-red-600" : "text-green-600"
                       }`}
                     >
                       {formatCurrency(row.totalVariance)}
                     </td>
-                    <td className="px-3 py-3 text-right">
+                    <td className="px-3 py-2 sm:py-3 text-right">
                       {variancePct !== "—" ? `${variancePct}%` : "—"}
                     </td>
                   </tr>
@@ -170,6 +171,7 @@ export default async function BudgetVsActualPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

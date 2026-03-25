@@ -123,24 +123,24 @@ export default async function DailyCheckPage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-4">
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold">{checks.length}</p>
-          <p className="text-sm text-muted-foreground">Total de Alertas</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold">{checks.length}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Total de Alertas</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-red-600">{criticalCount}</p>
-          <p className="text-sm text-muted-foreground">Criticos</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-red-600">{criticalCount}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Criticos</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-orange-600">{highCount}</p>
-          <p className="text-sm text-muted-foreground">Altos</p>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-orange-600">{highCount}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Altos</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-bold text-green-600">
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-lg sm:text-2xl font-bold text-green-600">
             {checks.length === 0 ? "OK" : checks.length - criticalCount - highCount}
           </p>
-          <p className="text-sm text-muted-foreground">Outros</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Outros</p>
         </Card>
       </div>
 
@@ -157,20 +157,20 @@ export default async function DailyCheckPage() {
       ) : (
         <div className="space-y-3">
           {checks.map((check, i) => (
-            <Card key={i} className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Badge className={SEVERITY_COLORS[check.severity]}>
+            <Card key={i} className="p-3 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3 sm:items-center justify-between">
+                <div className="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <Badge className={`shrink-0 ${SEVERITY_COLORS[check.severity]}`}>
                     {SEVERITY_LABELS[check.severity]}
                   </Badge>
-                  <div>
-                    <p className="font-medium">{check.name}</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm sm:text-base">{check.name}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                       {check.description}
                     </p>
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-muted-foreground">
+                <span className="text-lg sm:text-2xl font-bold text-muted-foreground shrink-0">
                   {check.count}
                 </span>
               </div>

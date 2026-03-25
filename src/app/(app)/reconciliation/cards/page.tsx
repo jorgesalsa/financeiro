@@ -27,17 +27,18 @@ export default async function CardReconciliationPage() {
         title="Conciliacao de Cartoes"
         description="Transacoes de cartao de credito e debito"
       />
-      <div className="rounded-md border border-border">
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="rounded-md border border-border min-w-[600px]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-medium">Data</th>
-              <th className="px-4 py-3 text-left font-medium">Descricao</th>
-              <th className="px-4 py-3 text-left font-medium">Bandeira</th>
-              <th className="px-4 py-3 text-left font-medium">Ultimos 4</th>
-              <th className="px-4 py-3 text-right font-medium">Valor</th>
-              <th className="px-4 py-3 text-right font-medium">Parcela</th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Data</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Descricao</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Bandeira</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Ultimos 4</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Valor</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-right font-medium">Parcela</th>
+              <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -50,17 +51,17 @@ export default async function CardReconciliationPage() {
             ) : (
               transactions.map((tx) => (
                 <tr key={tx.id} className="border-b">
-                  <td className="px-4 py-3">{formatDate(tx.transactionDate)}</td>
-                  <td className="px-4 py-3">{tx.description}</td>
-                  <td className="px-4 py-3">{tx.cardBrand ?? "—"}</td>
-                  <td className="px-4 py-3">{tx.lastFourDigits ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">{formatCurrency(Number(tx.grossAmount))}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 whitespace-nowrap">{formatDate(tx.transactionDate)}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">{tx.description}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">{tx.cardBrand ?? "—"}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">{tx.lastFourDigits ?? "—"}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">{formatCurrency(Number(tx.grossAmount))}</td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3 text-right">
                     {tx.installmentNumber && tx.totalInstallments
                       ? `${tx.installmentNumber}/${tx.totalInstallments}`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <span
                       className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
                         CARD_STATUS_COLORS[tx.status] ?? ""
@@ -74,6 +75,7 @@ export default async function CardReconciliationPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
