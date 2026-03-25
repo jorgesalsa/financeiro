@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+
+# next.js
+.next/
+out/
+
+# env
+.env
+.env.local
+
+# prisma generated client (regenerated on postinstall)
+/src/generated/prisma
+
+# sqlite (local dev only)
+*.db
+*.db-journal
+
+# local dev config
+.claude/
+dev.sh
+
+# misc
+.DS_Store
+*.tsbuildinfo
