@@ -7,13 +7,15 @@ import { navigation } from "@/lib/constants/navigation";
 import { ChevronDown, ChevronRight, LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import { TenantSwitcher, type TenantOption } from "./tenant-switcher";
 
 interface SidebarProps {
   userName: string;
   tenantName: string;
+  tenants: TenantOption[];
 }
 
-export function Sidebar({ userName, tenantName }: SidebarProps) {
+export function Sidebar({ userName, tenantName, tenants }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -42,9 +44,12 @@ export function Sidebar({ userName, tenantName }: SidebarProps) {
   const sidebarContent = (
     <>
       <div className="border-b border-white/10 p-4 flex items-center justify-between">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold">Sistema Financeiro</h1>
-          <p className="text-xs text-sidebar-foreground/60">{tenantName}</p>
+          <TenantSwitcher
+            currentTenantName={tenantName}
+            tenants={tenants}
+          />
         </div>
         {/* Close button - mobile only */}
         <button
