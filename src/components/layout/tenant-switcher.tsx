@@ -103,6 +103,11 @@ export function TenantSwitcher({
             </p>
           </div>
           <div className="max-h-60 overflow-y-auto py-1">
+            {otherTenants.length === 0 && (
+              <p className="px-3 py-2 text-[10px] text-sidebar-foreground/40 italic">
+                Nenhuma outra empresa encontrada ({tenants.length} total)
+              </p>
+            )}
             {otherTenants.map((t) => (
               <button
                 key={t.tenantId}

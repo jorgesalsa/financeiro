@@ -80,8 +80,9 @@ export async function createTenant(data: {
     userEmail: user.email,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard");
-  revalidatePath("/admin/tenants");
+  revalidatePath("/settings/companies");
 
   return tenant;
 }
@@ -128,8 +129,9 @@ export async function updateTenant(
     userEmail: user.email,
   });
 
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard");
-  revalidatePath("/admin/tenants");
+  revalidatePath("/settings/companies");
 
   return updated;
 }
