@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { switchTenant } from "@/lib/actions/tenant";
-import { Building2, ChevronDown, Check, Loader2 } from "lucide-react";
+import { Building2, ChevronDown, Check, Loader2, Ban } from "lucide-react";
 
 export type TenantOption = {
   tenantId: string;
   tenantName: string;
   tenantCnpj: string | null;
+  active: boolean;
   role: string;
   isDefault: boolean;
 };
@@ -70,6 +71,7 @@ export function TenantSwitcher({
   }
 
   const currentTenant = tenants.find((t) => t.isDefault);
+  const otherTenants = tenants.filter((t) => t.tenantId !== currentTenant?.tenantId);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -101,36 +103,42 @@ export function TenantSwitcher({
             </p>
           </div>
           <div className="max-h-60 overflow-y-auto py-1">
-            {tenants
-              .filter((t) => t.tenantId !== currentTenant?.tenantId)
-              .map((t) => (
-                <button
-                  key={t.tenantId}
-                  onClick={() => handleSwitch(t.tenantId)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-white/10"
-                >
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-xs text-sidebar-foreground/90">
-                      {t.tenantName}
-                    </p>
-                    {t.tenantCnpj && (
-                      <p className="truncate text-[10px] text-sidebar-foreground/40">
-                        {t.tenantCnpj}
-                      </p>
+            {otherTenants.map((t) => (
+              <button
+                key={t.tenantId}
+                onClick={() => t.active && handleSwitch(t.tenantId)}
+                disabled={!t.active}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  t.active
+                    ? "hover:bg-white/10"
+                    : "opacity-40 cursor-not-allowed"
+                }`}
+              >
+                <Building2 className="h-3.5 w-3.5 shrink-0 text-sidebar-foreground/50" />
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-xs text-sidebar-foreground/90">
+                    {t.tenantName}
+                    {!t.active && (
+                      <span className="ml-1.5 text-[9px] text-red-400">(inativa)</span>
                     )}
-                  </div>
-                  <span className="text-[10px] text-sidebar-foreground/40 shrink-0 uppercase">
-                    {t.role === "ADMIN"
-                      ? "Admin"
-                      : t.role === "CONTROLLER"
-                        ? "Controller"
-                        : t.role === "ANALYST"
-                          ? "Analista"
-                          : "Viewer"}
-                  </span>
-                </button>
-              ))}
+                  </p>
+                  {t.tenantCnpj && (
+                    <p className="truncate text-[10px] text-sidebar-foreground/40">
+                      {t.tenantCnpj}
+                    </p>
+                  )}
+                </div>
+                <span className="text-[10px] text-sidebar-foreground/40 shrink-0 uppercase">
+                  {t.role === "ADMIN"
+                    ? "Admin"
+                    : t.role === "CONTROLLER"
+                      ? "Controller"
+                      : t.role === "ANALYST"
+                        ? "Analista"
+                        : "Viewer"}
+                </span>
+              </button>
+            ))}
           </div>
           {/* Current tenant indicator */}
           <div className="border-t border-white/10 px-3 py-2 flex items-center gap-2">

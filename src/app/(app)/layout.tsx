@@ -37,15 +37,14 @@ export default async function AppLayout({
 
   const tenantName = tenant?.name || "Sem empresa";
 
-  const tenants = memberships
-    .filter((m) => m.tenant.active)
-    .map((m) => ({
-      tenantId: m.tenantId,
-      tenantName: m.tenant.name,
-      tenantCnpj: m.tenant.cnpj,
-      role: m.role,
-      isDefault: m.isDefault,
-    }));
+  const tenants = memberships.map((m) => ({
+    tenantId: m.tenantId,
+    tenantName: m.tenant.name,
+    tenantCnpj: m.tenant.cnpj,
+    active: m.tenant.active,
+    role: m.role,
+    isDefault: m.isDefault,
+  }));
 
   return (
     <div className="flex h-screen overflow-hidden">
