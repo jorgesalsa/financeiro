@@ -21,9 +21,19 @@ import {
   Clock,
   AlertTriangle,
   LogIn,
+  ShieldAlert,
+  Tag,
+  Layers,
 } from "lucide-react";
 import { createTenant, updateTenant } from "@/lib/actions/admin";
 import { switchTenant } from "@/lib/actions/tenant";
+
+type ExceptionInfo = {
+  unclassified: number;
+  staleStaging: number;
+  noCostCenter: number;
+  total: number;
+};
 
 type TenantInfo = {
   tenantId: string;
@@ -36,6 +46,7 @@ type TenantInfo = {
   memberCount: number;
   pendingStaging: number;
   overdueCount: number;
+  exceptions: ExceptionInfo;
 };
 
 interface CompaniesClientProps {
@@ -306,6 +317,38 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
                     </span>
                   )}
                 </div>
+
+                {/* Exceptions panel */}
+                {tenant.exceptions.total > 0 && (
+                  <div className="rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 p-2.5">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {tenant.exceptions.total} excecao{tenant.exceptions.total !== 1 && "es"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-amber-700 dark:text-amber-300">
+                      {tenant.exceptions.unclassified > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Tag className="h-3 w-3" />
+                          {tenant.exceptions.unclassified} sem classificacao
+                        </span>
+                      )}
+                      {tenant.exceptions.staleStaging > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {tenant.exceptions.staleStaging} staging parado
+                        </span>
+                      )}
+                      {tenant.exceptions.noCostCenter > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Layers className="h-3 w-3" />
+                          {tenant.exceptions.noCostCenter} sem centro de custo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Role badge */}
                 <div>

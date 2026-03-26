@@ -16,6 +16,7 @@ export default async function CompaniesPage() {
     memberCount: m.memberCount,
     pendingStaging: m.stagingPendingCount,
     overdueCount: m.overdueCount,
+    exceptions: m.exceptions,
   }));
 
   return (
