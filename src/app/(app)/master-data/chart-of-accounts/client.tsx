@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +18,22 @@ import {
   createChartOfAccount,
   updateChartOfAccount,
   deleteChartOfAccount,
+  applyChartTemplate,
 } from "@/lib/actions/master-data";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  FileDown,
+  UtensilsCrossed,
+  Briefcase,
+  ShoppingCart,
+  BookOpen,
+  LayoutTemplate,
+  Loader2,
+  AlertTriangle,
+  Check,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { AccountType } from "@/generated/prisma";
 
@@ -53,19 +68,84 @@ type ChartOfAccount = {
   active: boolean;
 };
 
+type TemplateInfo = {
+  id: string;
+  name: string;
+  description: string;
+  accountCount: number;
+};
+
+const TEMPLATE_ICONS: Record<string, React.ElementType> = {
+  financeiro_geral: LayoutTemplate,
+  alimentos_bebidas: UtensilsCrossed,
+  servicos: Briefcase,
+  comercio: ShoppingCart,
+  contabil: BookOpen,
+};
+
+const TEMPLATE_COLORS: Record<string, string> = {
+  financeiro_geral: "border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/5",
+  alimentos_bebidas: "border-orange-500/30 hover:border-orange-500 hover:bg-orange-500/5",
+  servicos: "border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/5",
+  comercio: "border-green-500/30 hover:border-green-500 hover:bg-green-500/5",
+  contabil: "border-gray-500/30 hover:border-gray-500 hover:bg-gray-500/5",
+};
+
+const TEMPLATE_ICON_COLORS: Record<string, string> = {
+  financeiro_geral: "text-blue-500",
+  alimentos_bebidas: "text-orange-500",
+  servicos: "text-purple-500",
+  comercio: "text-green-500",
+  contabil: "text-gray-500",
+};
+
 export function ChartOfAccountsClient({
   data,
+  templates,
 }: {
   data: ChartOfAccount[];
+  templates: TemplateInfo[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ChartOfAccount | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Template state
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [clearExisting, setClearExisting] = useState(true);
+  const [templateResult, setTemplateResult] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const hasAccounts = data.length > 0;
+  const showTemplateSelector = !hasAccounts;
 
   const columns: ColumnDef<ChartOfAccount>[] = [
-    { accessorKey: "code", header: "Código" },
-    { accessorKey: "name", header: "Nome" },
+    {
+      accessorKey: "code",
+      header: "Código",
+      cell: ({ row }) => (
+        <span
+          style={{ paddingLeft: `${(row.original.level - 1) * 16}px` }}
+          className={row.original.isAnalytic ? "" : "font-semibold"}
+        >
+          {row.original.code}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: "Nome",
+      cell: ({ row }) => (
+        <span className={row.original.isAnalytic ? "" : "font-semibold"}>
+          {row.original.name}
+        </span>
+      ),
+    },
     {
       accessorKey: "type",
       header: "Tipo",
@@ -77,29 +157,11 @@ export function ChartOfAccountsClient({
     },
     { accessorKey: "level", header: "Nível" },
     {
-      accessorKey: "parent",
-      header: "Conta Pai",
-      cell: ({ row }) => {
-        const parent = row.original.parent;
-        if (!parent) return "-";
-        return `${parent.code} - ${parent.name}`;
-      },
-    },
-    {
       accessorKey: "isAnalytic",
       header: "Analítica",
       cell: ({ row }) => (
         <Badge variant={row.original.isAnalytic ? "default" : "secondary"}>
           {row.original.isAnalytic ? "Sim" : "Não"}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "active",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={row.original.active ? "default" : "secondary"}>
-          {row.original.active ? "Ativo" : "Inativo"}
         </Badge>
       ),
     },
@@ -167,9 +229,122 @@ export function ChartOfAccountsClient({
     }
   }
 
+  function handleApplyTemplate() {
+    if (!selectedTemplate) return;
+    startTransition(async () => {
+      try {
+        const result = await applyChartTemplate(selectedTemplate, {
+          clearExisting,
+        });
+        setTemplateResult({
+          type: "success",
+          message: `Template "${result.templateName}" aplicado com sucesso! ${result.created} contas criadas.`,
+        });
+        setTemplateDialogOpen(false);
+        setSelectedTemplate(null);
+        router.refresh();
+      } catch (err: unknown) {
+        setTemplateResult({
+          type: "error",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Erro ao aplicar template",
+        });
+      }
+    });
+  }
+
   return (
     <>
-      <div className="flex justify-end">
+      {/* Feedback banner */}
+      {templateResult && (
+        <div
+          className={`rounded-lg border p-3 flex items-center gap-2 ${
+            templateResult.type === "success"
+              ? "bg-green-50 border-green-200 text-green-800"
+              : "bg-red-50 border-red-200 text-red-800"
+          }`}
+        >
+          {templateResult.type === "success" ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <AlertTriangle className="h-4 w-4" />
+          )}
+          <span className="text-sm">{templateResult.message}</span>
+          <button
+            className="ml-auto text-xs underline"
+            onClick={() => setTemplateResult(null)}
+          >
+            Fechar
+          </button>
+        </div>
+      )}
+
+      {/* Template selector — shown when no accounts exist OR via button */}
+      {showTemplateSelector && (
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <LayoutTemplate className="h-5 w-5" />
+              Escolha um Modelo de Plano de Contas
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Selecione um modelo pré-definido para começar. Você pode
+              personalizar depois.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {templates.map((t) => {
+                const Icon = TEMPLATE_ICONS[t.id] ?? LayoutTemplate;
+                const colorClass = TEMPLATE_COLORS[t.id] ?? "";
+                const iconColor = TEMPLATE_ICON_COLORS[t.id] ?? "text-muted-foreground";
+                return (
+                  <button
+                    key={t.id}
+                    disabled={isPending}
+                    onClick={() => {
+                      setSelectedTemplate(t.id);
+                      setClearExisting(true);
+                      setTemplateDialogOpen(true);
+                    }}
+                    className={`group relative rounded-lg border-2 p-4 text-left transition-all ${colorClass} disabled:opacity-50`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Icon className={`h-8 w-8 shrink-0 ${iconColor}`} />
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm">{t.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                          {t.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t.accountCount} contas
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions bar */}
+      <div className="flex flex-wrap gap-2 justify-end">
+        {hasAccounts && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedTemplate(null);
+              setClearExisting(false);
+              setTemplateDialogOpen(true);
+            }}
+          >
+            <FileDown className="mr-2 h-4 w-4" /> Aplicar Modelo
+          </Button>
+        )}
         <Button
           onClick={() => {
             setEditing(null);
@@ -180,13 +355,132 @@ export function ChartOfAccountsClient({
         </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={data}
-        searchKey="name"
-        searchPlaceholder="Buscar conta..."
-      />
+      {/* Data table */}
+      {hasAccounts && (
+        <DataTable
+          columns={columns}
+          data={data}
+          searchKey="name"
+          searchPlaceholder="Buscar conta..."
+        />
+      )}
 
+      {/* Template confirmation dialog */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Aplicar Modelo de Plano de Contas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Template selector when opened from "Aplicar Modelo" button */}
+            {!selectedTemplate && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Escolha o modelo:
+                </p>
+                <div className="grid gap-2">
+                  {templates.map((t) => {
+                    const Icon = TEMPLATE_ICONS[t.id] ?? LayoutTemplate;
+                    const iconColor = TEMPLATE_ICON_COLORS[t.id] ?? "text-muted-foreground";
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTemplate(t.id)}
+                        className="flex items-center gap-3 rounded-lg border p-3 text-left hover:bg-accent transition-colors"
+                      >
+                        <Icon className={`h-5 w-5 shrink-0 ${iconColor}`} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{t.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t.accountCount} contas
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Confirmation when template is selected */}
+            {selectedTemplate && (
+              <>
+                <div className="rounded-lg bg-muted p-3">
+                  <p className="text-sm font-medium">
+                    Modelo selecionado:{" "}
+                    {templates.find((t) => t.id === selectedTemplate)?.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {
+                      templates.find((t) => t.id === selectedTemplate)
+                        ?.description
+                    }
+                  </p>
+                </div>
+
+                {hasAccounts && (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">
+                          Atenção
+                        </p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          Você já tem {data.length} contas cadastradas.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={clearExisting}
+                        onChange={(e) => setClearExisting(e.target.checked)}
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      <span className="text-sm">
+                        Substituir plano atual (apaga todas as contas existentes)
+                      </span>
+                    </label>
+                    {!clearExisting && (
+                      <p className="text-xs text-muted-foreground pl-6">
+                        Contas com código duplicado serão ignoradas.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTemplateDialogOpen(false);
+                setSelectedTemplate(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            {selectedTemplate && (
+              <Button onClick={handleApplyTemplate} disabled={isPending}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                    Aplicando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="mr-2 h-4 w-4" /> Aplicar Modelo
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New/Edit account dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import prisma from "@/lib/db";
 import { OnboardingClient } from "./client";
+import { listChartTemplates } from "@/lib/actions/master-data";
 
 interface OnboardingPageProps {
   searchParams: Promise<{ tenantId?: string }>;
@@ -35,16 +36,19 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
     redirect("/settings/companies");
   }
 
+  const templates = await listChartTemplates();
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Configuracao inicial"
+        title="Configuração inicial"
         description="Configure sua nova empresa em poucos passos"
       />
       <OnboardingClient
         tenantId={tenantId}
         tenantName={membership.tenant.name}
         tenantCnpj={membership.tenant.cnpj ?? ""}
+        templates={templates}
       />
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-utils";
+import { getCurrentUser, requireRole } from "@/lib/auth-utils";
 import { createAuditLog } from "@/lib/utils/audit";
 import {
   chartOfAccountSchema,
@@ -724,4 +724,87 @@ export async function deleteWarehouse(id: string) {
   });
 
   revalidatePath("/master-data/warehouses");
+}
+
+// ─── Chart of Accounts Templates ─────────────────────────
+
+export async function applyChartTemplate(
+  templateId: string,
+  options?: { clearExisting?: boolean }
+) {
+  const user = await requireRole(["ADMIN"]);
+
+  const { CHART_TEMPLATES } = await import("@/lib/constants/chart-templates");
+  const template = CHART_TEMPLATES.find((t) => t.id === templateId);
+  if (!template) throw new Error("Template não encontrado");
+
+  // Use transaction
+  const result = await prisma.$transaction(async (tx) => {
+    if (options?.clearExisting) {
+      await tx.chartOfAccount.deleteMany({
+        where: { tenantId: user.tenantId },
+      });
+    }
+
+    // Build accounts in order, maintaining code→id map for parent resolution
+    const codeToId = new Map<string, string>();
+    let created = 0;
+
+    for (const acc of template.accounts) {
+      const parentId = acc.parentCode ? codeToId.get(acc.parentCode) : null;
+
+      // Skip if code already exists (when not clearing)
+      if (!options?.clearExisting) {
+        const existing = await tx.chartOfAccount.findUnique({
+          where: { tenantId_code: { tenantId: user.tenantId, code: acc.code } },
+        });
+        if (existing) {
+          codeToId.set(acc.code, existing.id);
+          continue;
+        }
+      }
+
+      const record = await tx.chartOfAccount.create({
+        data: {
+          tenantId: user.tenantId,
+          code: acc.code,
+          name: acc.name,
+          type: acc.type,
+          level: acc.level,
+          isAnalytic: acc.isAnalytic,
+          parentId: parentId || undefined,
+          active: true,
+        },
+      });
+
+      codeToId.set(acc.code, record.id);
+      created++;
+    }
+
+    return created;
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "ChartOfAccount",
+    recordId: "template",
+    action: "CREATE",
+    newValues: { templateId, clearExisting: options?.clearExisting, count: result },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/master-data/chart-of-accounts");
+
+  return { created: result, templateName: template.name };
+}
+
+export async function listChartTemplates() {
+  const { CHART_TEMPLATES } = await import("@/lib/constants/chart-templates");
+  return CHART_TEMPLATES.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    accountCount: t.accounts.length,
+  }));
 }
