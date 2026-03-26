@@ -84,6 +84,7 @@ export const navigation: NavGroup[] = [
       { title: "Contas a Pagar", href: "/financial/payables", icon: ArrowDownCircle },
       { title: "Contas a Receber", href: "/financial/receivables", icon: ArrowUpCircle },
       { title: "Recorrências", href: "/financial/recurring", icon: Repeat },
+      { title: "Notas Fiscais", href: "/financial/tax-invoices", icon: FileText },
       { title: "Parcelas", href: "/financial/installments", icon: DollarSign },
       { title: "Agenda Financeira", href: "/financial/calendar", icon: Calendar },
     ],
