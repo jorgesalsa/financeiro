@@ -53,6 +53,7 @@ enum ImportType {
   CARD_TRANSACTION
   PURCHASE_INVOICE
   PLUGGY_SYNC
+  QIVE_SYNC
 }
 
 enum ImportStatus {
@@ -80,6 +81,7 @@ enum StagingSource {
   IMPORT_CARD
   IMPORT_PURCHASE_INVOICE
   IMPORT_PLUGGY
+  IMPORT_QIVE
 }
 
 enum StagingStatus {
@@ -149,6 +151,12 @@ enum AuditAction {
   DELETE
 }
 
+enum QiveConnectionStatus {
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
 enum PluggyConnectionStatus {
   LOGIN_IN_PROGRESS
   WAITING_USER_INPUT
@@ -194,6 +202,7 @@ model Tenant {
   stockMovements     StockMovement[]
   auditLogs          AuditLog[]
   pluggyConnections  PluggyConnection[]
+  qiveConnections    QiveConnection[]
 }
 
 model User {
@@ -222,6 +231,7 @@ model User {
   completedChecklists       ClosingChecklist[]    @relation("ChecklistCompletedBy")
   createdStockMovements     StockMovement[]       @relation("StockMovementCreatedBy")
   createdPluggyConnections  PluggyConnection[]    @relation("PluggyConnectionCreatedBy")
+  createdQiveConnections    QiveConnection[]      @relation("QiveConnectionCreatedBy")
 }
 
 model Membership {
@@ -567,11 +577,13 @@ model TaxInvoiceLine {
   pisValue           Decimal
   cofinsValue        Decimal
   accessKey          String?
+  externalId         String?
   createdAt          DateTime @default(now())
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, externalId])
   @@index([tenantId])
   @@index([importBatchId])
   @@index([tenantId, cnpjIssuer])
@@ -995,4 +1007,21 @@ model PluggyConnection {
 
   @@index([tenantId])
   @@index([tenantId, status])
+}
+
+model QiveConnection {
+  id             String                @id @default(cuid())
+  tenantId       String
+  status         QiveConnectionStatus  @default(ACTIVE)
+  lastSyncAt     DateTime?
+  lastCursor     String?
+  executionError String?
+  createdById    String
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("QiveConnectionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId])
 }
