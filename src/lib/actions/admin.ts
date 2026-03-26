@@ -162,8 +162,18 @@ export async function listAllUserTenants() {
 
   const tenantIds = memberships.map((m) => m.tenantId);
 
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
   // Efficient aggregation queries in parallel
-  const [memberCounts, stagingPendingCounts, overdueCounts] = await Promise.all([
+  const [
+    memberCounts,
+    stagingPendingCounts,
+    overdueCounts,
+    unclassifiedCounts,
+    staleStagingCounts,
+    noCostCenterCounts,
+  ] = await Promise.all([
     prisma.membership.groupBy({
       by: ["tenantId"],
       where: { tenantId: { in: tenantIds } },
@@ -187,6 +197,36 @@ export async function listAllUserTenants() {
       },
       _count: { id: true },
     }),
+    // Exception: staging sem classificação
+    prisma.stagingEntry.groupBy({
+      by: ["tenantId"],
+      where: {
+        tenantId: { in: tenantIds },
+        chartOfAccountId: { equals: null },
+        status: { in: ["PENDING", "AUTO_CLASSIFIED"] },
+      },
+      _count: { id: true },
+    }),
+    // Exception: staging parado > 7 dias
+    prisma.stagingEntry.groupBy({
+      by: ["tenantId"],
+      where: {
+        tenantId: { in: tenantIds },
+        status: { in: ["PENDING", "AUTO_CLASSIFIED"] },
+        createdAt: { lt: sevenDaysAgo },
+      },
+      _count: { id: true },
+    }),
+    // Exception: lançamentos sem centro de custo
+    prisma.officialEntry.groupBy({
+      by: ["tenantId"],
+      where: {
+        tenantId: { in: tenantIds },
+        costCenterId: { equals: null },
+        status: { not: "CANCELLED" },
+      },
+      _count: { id: true },
+    }),
   ]);
 
   const memberCountMap = Object.fromEntries(
@@ -198,16 +238,37 @@ export async function listAllUserTenants() {
   const overdueMap = Object.fromEntries(
     overdueCounts.map((c) => [c.tenantId, c._count.id])
   );
+  const unclassifiedMap = Object.fromEntries(
+    unclassifiedCounts.map((c) => [c.tenantId, c._count.id])
+  );
+  const staleStagingMap = Object.fromEntries(
+    staleStagingCounts.map((c) => [c.tenantId, c._count.id])
+  );
+  const noCostCenterMap = Object.fromEntries(
+    noCostCenterCounts.map((c) => [c.tenantId, c._count.id])
+  );
 
-  return memberships.map((m) => ({
-    tenantId: m.tenantId,
-    tenant: m.tenant,
-    role: m.role,
-    isDefault: m.isDefault,
-    memberCount: memberCountMap[m.tenantId] ?? 0,
-    stagingPendingCount: stagingPendingMap[m.tenantId] ?? 0,
-    overdueCount: overdueMap[m.tenantId] ?? 0,
-  }));
+  return memberships.map((m) => {
+    const unclassified = unclassifiedMap[m.tenantId] ?? 0;
+    const staleStaging = staleStagingMap[m.tenantId] ?? 0;
+    const noCostCenter = noCostCenterMap[m.tenantId] ?? 0;
+
+    return {
+      tenantId: m.tenantId,
+      tenant: m.tenant,
+      role: m.role,
+      isDefault: m.isDefault,
+      memberCount: memberCountMap[m.tenantId] ?? 0,
+      stagingPendingCount: stagingPendingMap[m.tenantId] ?? 0,
+      overdueCount: overdueMap[m.tenantId] ?? 0,
+      exceptions: {
+        unclassified,
+        staleStaging,
+        noCostCenter,
+        total: unclassified + staleStaging + noCostCenter,
+      },
+    };
+  });
 }
 
 /**

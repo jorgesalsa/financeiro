@@ -13,7 +13,18 @@ import {
   FileCheck,
   Loader2,
   ArrowRight,
+  ShieldAlert,
+  Clock,
+  Tag,
+  Layers,
 } from "lucide-react";
+
+type ExceptionInfo = {
+  unclassified: number;
+  staleStaging: number;
+  noCostCenter: number;
+  total: number;
+};
 
 type TenantInfo = {
   tenantId: string;
@@ -25,6 +36,7 @@ type TenantInfo = {
   memberCount: number;
   pendingStaging: number;
   overdueCount: number;
+  exceptions: ExceptionInfo;
 };
 
 interface MultiTenantDashboardClientProps {
@@ -47,7 +59,8 @@ function roleLabel(role: string) {
 }
 
 function cardBorderColor(tenant: TenantInfo) {
-  if (tenant.overdueCount > 0) return "border-red-400";
+  if (tenant.overdueCount > 0 || tenant.exceptions.total > 0)
+    return "border-red-400";
   if (tenant.pendingStaging > 0) return "border-yellow-400";
   return "border-emerald-400";
 }
@@ -61,6 +74,7 @@ export function MultiTenantDashboardClient({
   const totalEmpresas = tenants.length;
   const totalPendencias = tenants.reduce((s, t) => s + t.pendingStaging, 0);
   const totalVencidas = tenants.reduce((s, t) => s + t.overdueCount, 0);
+  const totalExcecoes = tenants.reduce((s, t) => s + t.exceptions.total, 0);
 
   function handleAccess(tenantId: string) {
     startTransition(async () => {
@@ -72,7 +86,7 @@ export function MultiTenantDashboardClient({
   return (
     <div className="space-y-6">
       {/* Summary row */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -118,6 +132,48 @@ export function MultiTenantDashboardClient({
             </div>
           </CardContent>
         </Card>
+
+        <Card
+          className={cn(
+            totalExcecoes > 0 && "ring-1 ring-amber-400 dark:ring-amber-600"
+          )}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-lg",
+                  totalExcecoes > 0
+                    ? "bg-amber-50 dark:bg-amber-950"
+                    : "bg-emerald-50 dark:bg-emerald-950"
+                )}
+              >
+                <ShieldAlert
+                  className={cn(
+                    "h-5 w-5",
+                    totalExcecoes > 0
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-emerald-600 dark:text-emerald-400"
+                  )}
+                />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Total excecoes
+                </p>
+                <p
+                  className={cn(
+                    "text-xl font-bold",
+                    totalExcecoes > 0 &&
+                      "text-amber-600 dark:text-amber-400"
+                  )}
+                >
+                  {totalExcecoes}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Company cards grid */}
@@ -152,7 +208,7 @@ export function MultiTenantDashboardClient({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-3">
                 <span
                   className={cn(
                     "flex items-center gap-1",
@@ -180,6 +236,38 @@ export function MultiTenantDashboardClient({
                   {tenant.memberCount} membros
                 </span>
               </div>
+
+              {/* Exceptions panel */}
+              {tenant.exceptions.total > 0 && (
+                <div className="mb-3 rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 p-2.5">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      {tenant.exceptions.total} excecoes encontradas
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-amber-700 dark:text-amber-300">
+                    {tenant.exceptions.unclassified > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Tag className="h-3 w-3" />
+                        {tenant.exceptions.unclassified} sem classificacao
+                      </span>
+                    )}
+                    {tenant.exceptions.staleStaging > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {tenant.exceptions.staleStaging} staging parado
+                      </span>
+                    )}
+                    {tenant.exceptions.noCostCenter > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        {tenant.exceptions.noCostCenter} sem centro de custo
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={() => handleAccess(tenant.tenantId)}

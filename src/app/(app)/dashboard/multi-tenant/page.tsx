@@ -16,6 +16,7 @@ export default async function MultiTenantDashboardPage() {
     memberCount: m.memberCount,
     pendingStaging: m.stagingPendingCount,
     overdueCount: m.overdueCount,
+    exceptions: m.exceptions,
   }));
 
   return (
