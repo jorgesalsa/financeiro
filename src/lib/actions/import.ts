@@ -309,26 +309,33 @@ export async function importTaxInvoices(formData: FormData) {
   });
 
   try {
+    const stagingIds: string[] = [];
+    const parseAmt = (s: string) =>
+      parseFloat((s || "0").replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
+    const parseDate = (s: string) => {
+      if (!s) return new Date();
+      const parts = s.split(/[/\-\.]/);
+      if (parts[0]?.length === 4)
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    };
+
     for (const row of rows) {
-      const parseAmt = (s: string) =>
-        parseFloat((s || "0").replace(/[^\d,.-]/g, "").replace(",", ".")) || 0;
-      const parseDate = (s: string) => {
-        if (!s) return new Date();
-        const parts = s.split(/[/\-\.]/);
-        if (parts[0]?.length === 4)
-          return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      };
+      const invoiceNumber = row["Número NF"] || row["numero_nf"] || "";
+      const cnpjIssuer = row["CNPJ Emitente"] || row["cnpj_emitente"] || "";
+      const issuerName = row["Nome Emitente"] || row["nome_emitente"] || "";
+      const issueDate = parseDate(row["Data Emissão"] || row["data_emissao"] || "");
+      const totalValue = parseAmt(row["Valor Total"] || row["valor_total"] || "0");
 
       await prisma.taxInvoiceLine.create({
         data: {
           tenantId: user.tenantId,
           importBatchId: batch.id,
-          invoiceNumber: row["Número NF"] || row["numero_nf"] || "",
+          invoiceNumber,
           series: row["Série"] || row["serie"] || "",
-          issueDate: parseDate(row["Data Emissão"] || row["data_emissao"] || ""),
-          cnpjIssuer: row["CNPJ Emitente"] || row["cnpj_emitente"] || "",
-          issuerName: row["Nome Emitente"] || row["nome_emitente"] || "",
+          issueDate,
+          cnpjIssuer,
+          issuerName,
           cnpjRecipient: row["CNPJ Destinatário"] || row["cnpj_destinatario"] || "",
           cfop: row["CFOP"] || row["cfop"] || "",
           productCode: row["Código Produto"] || row["codigo_produto"] || "",
@@ -336,7 +343,7 @@ export async function importTaxInvoices(formData: FormData) {
           ncm: row["NCM"] || row["ncm"] || "",
           quantity: parseAmt(row["Quantidade"] || row["quantidade"] || "0"),
           unitPrice: parseAmt(row["Valor Unitário"] || row["valor_unitario"] || "0"),
-          totalValue: parseAmt(row["Valor Total"] || row["valor_total"] || "0"),
+          totalValue,
           icmsValue: parseAmt(row["ICMS"] || row["icms"] || "0"),
           ipiValue: parseAmt(row["IPI"] || row["ipi"] || "0"),
           pisValue: parseAmt(row["PIS"] || row["pis"] || "0"),
@@ -344,6 +351,32 @@ export async function importTaxInvoices(formData: FormData) {
           accessKey: row["Chave Acesso"] || row["chave_acesso"] || "",
         },
       });
+
+      // Create StagingEntry for validation pipeline
+      const staging = await prisma.stagingEntry.create({
+        data: {
+          tenantId: user.tenantId,
+          importBatchId: batch.id,
+          source: "IMPORT_TAX_INVOICE",
+          status: "PENDING",
+          date: issueDate,
+          description: `NF ${invoiceNumber} - ${issuerName || cnpjIssuer}`.trim(),
+          amount: totalValue,
+          type: "DEBIT",
+          counterpartCnpjCpf: cnpjIssuer || null,
+          counterpartName: issuerName || null,
+          createdById: user.id,
+        },
+      });
+
+      stagingIds.push(staging.id);
+    }
+
+    // Auto-classify staging entries
+    let classified = 0;
+    if (stagingIds.length > 0) {
+      const classResult = await classifyStagingEntries(user.tenantId, stagingIds);
+      classified = classResult.classified;
     }
 
     await prisma.importBatch.update({
@@ -352,7 +385,8 @@ export async function importTaxInvoices(formData: FormData) {
     });
 
     revalidatePath("/imports/tax-invoices");
-    return { batchId: batch.id, total: rows.length };
+    revalidatePath("/staging");
+    return { batchId: batch.id, total: rows.length, classified };
   } catch (err: any) {
     await prisma.importBatch.update({ where: { id: batch.id }, data: { status: "FAILED" } });
     throw new Error(`Erro na importação: ${err.message}`);
@@ -390,6 +424,7 @@ export async function importTaxInvoicesXML(formData: FormData) {
     let processed = 0;
     let errors = 0;
     const errorMessages: string[] = [];
+    const stagingIds: string[] = [];
 
     for (const file of files) {
       try {
@@ -462,12 +497,37 @@ export async function importTaxInvoicesXML(formData: FormData) {
             },
           });
 
+          // Create StagingEntry for validation pipeline
+          const staging = await prisma.stagingEntry.create({
+            data: {
+              tenantId: user.tenantId,
+              importBatchId: batch.id,
+              source: "IMPORT_TAX_INVOICE",
+              status: "PENDING",
+              date: parsed.issueDate,
+              description: `NF ${parsed.invoiceNumber} - ${parsed.issuerName || parsed.cnpjIssuer}`.trim(),
+              amount: parsed.totalValue,
+              type: "DEBIT",
+              counterpartCnpjCpf: parsed.cnpjIssuer || null,
+              counterpartName: parsed.issuerName || null,
+              createdById: user.id,
+            },
+          });
+
+          stagingIds.push(staging.id);
           processed++;
         }
       } catch (fileErr: any) {
         errorMessages.push(`${file.name}: ${fileErr.message}`);
         errors++;
       }
+    }
+
+    // Auto-classify staging entries
+    let classified = 0;
+    if (stagingIds.length > 0) {
+      const classResult = await classifyStagingEntries(user.tenantId, stagingIds);
+      classified = classResult.classified;
     }
 
     await prisma.importBatch.update({
@@ -482,9 +542,11 @@ export async function importTaxInvoicesXML(formData: FormData) {
     });
 
     revalidatePath("/imports/tax-invoices");
+    revalidatePath("/staging");
     return {
       batchId: batch.id,
       total: processed,
+      classified,
       errors,
       errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
     };
