@@ -30,6 +30,7 @@ type TenantInfo = {
   tenantName: string;
   tenantCnpj: string;
   tenantSlug: string;
+  active: boolean;
   role: string;
   isDefault: boolean;
   memberCount: number;
@@ -95,7 +96,7 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
     setEditingId(tenant.tenantId);
     setEditName(tenant.tenantName);
     setEditCnpj(tenant.tenantCnpj || "");
-    setEditActive(true);
+    setEditActive(tenant.active);
   }
 
   function closeEdit() {
@@ -258,9 +259,14 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     {tenant.tenantName}
                   </CardTitle>
-                  <Badge variant={tenant.isDefault ? "default" : "outline"}>
-                    {tenant.isDefault ? "Ativa" : "Inativa"}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {tenant.isDefault && (
+                      <Badge variant="default" className="bg-blue-600">Atual</Badge>
+                    )}
+                    <Badge variant={tenant.active ? "default" : "outline"}>
+                      {tenant.active ? "Ativa" : "Inativa"}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
