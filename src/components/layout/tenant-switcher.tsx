@@ -96,7 +96,7 @@ export function TenantSwitcher({
       </button>
 
       {open && !switching && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 z-50 rounded-md border border-white/10 bg-sidebar shadow-xl">
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 rounded-md border border-white/10 bg-sidebar shadow-xl">
           <div className="px-3 py-2 border-b border-white/10">
             <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/40 font-semibold">
               Trocar empresa
