@@ -741,6 +741,41 @@ export async function applyChartTemplate(
   // Use transaction
   const result = await prisma.$transaction(async (tx) => {
     if (options?.clearExisting) {
+      // Check if any OfficialEntries reference these accounts (can't delete those)
+      const entriesCount = await tx.officialEntry.count({
+        where: { tenantId: user.tenantId },
+      });
+      if (entriesCount > 0) {
+        throw new Error(
+          `Não é possível substituir o plano de contas: existem ${entriesCount} lançamento(s) vinculado(s). Remova os lançamentos primeiro.`
+        );
+      }
+
+      // 1. Remove optional FK references
+      await tx.classificationRule.updateMany({
+        where: { tenantId: user.tenantId, chartOfAccountId: { not: null } },
+        data: { chartOfAccountId: null },
+      });
+      await tx.stagingEntry.updateMany({
+        where: { tenantId: user.tenantId, chartOfAccountId: { not: null } },
+        data: { chartOfAccountId: null },
+      });
+
+      // 2. Delete dependent records with required FK
+      await tx.budgetLine.deleteMany({
+        where: { tenantId: user.tenantId },
+      });
+      await tx.recurringRule.deleteMany({
+        where: { tenantId: user.tenantId },
+      });
+
+      // 3. Nullify self-referencing parentId to avoid FK constraint
+      await tx.chartOfAccount.updateMany({
+        where: { tenantId: user.tenantId, parentId: { not: null } },
+        data: { parentId: null },
+      });
+
+      // 4. Now safe to delete all accounts
       await tx.chartOfAccount.deleteMany({
         where: { tenantId: user.tenantId },
       });
