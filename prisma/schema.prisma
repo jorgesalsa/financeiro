@@ -173,10 +173,12 @@ model Tenant {
   cnpj      String
   slug      String   @unique
   active    Boolean  @default(true)
+  logoUrl   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   memberships        Membership[]
+  invites            TenantInvite[]
   chartOfAccounts    ChartOfAccount[]
   suppliers          Supplier[]
   customers          Customer[]
@@ -232,6 +234,8 @@ model User {
   createdStockMovements     StockMovement[]       @relation("StockMovementCreatedBy")
   createdPluggyConnections  PluggyConnection[]    @relation("PluggyConnectionCreatedBy")
   createdQiveConnections    QiveConnection[]      @relation("QiveConnectionCreatedBy")
+  createdInvites            TenantInvite[]        @relation("InviteCreatedBy")
+  notifications             Notification[]        @relation("NotificationUser")
 }
 
 model Membership {
@@ -1024,4 +1028,62 @@ model QiveConnection {
   createdBy User   @relation("QiveConnectionCreatedBy", fields: [createdById], references: [id])
 
   @@index([tenantId])
+}
+
+// ─── Multi-Tenant Management ─────────────────────────────────────────────────
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
+
+model TenantInvite {
+  id        String       @id @default(cuid())
+  tenantId  String
+  email     String
+  role      Role         @default(VIEWER)
+  status    InviteStatus @default(PENDING)
+  token     String       @unique @default(cuid())
+  expiresAt DateTime
+  createdById String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User   @relation("InviteCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@index([token])
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+enum NotificationType {
+  STAGING_PENDING
+  OVERDUE_PAYABLE
+  OVERDUE_RECEIVABLE
+  IMPORT_COMPLETED
+  INVITE_RECEIVED
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  tenantId  String?
+  type      NotificationType
+  title     String
+  message   String
+  href      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }

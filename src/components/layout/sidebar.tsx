@@ -8,14 +8,16 @@ import { ChevronDown, ChevronRight, LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { TenantSwitcher, type TenantOption } from "./tenant-switcher";
+import { NotificationBell } from "./notification-bell";
 
 interface SidebarProps {
   userName: string;
   tenantName: string;
   tenants: TenantOption[];
+  unreadNotifications: number;
 }
 
-export function Sidebar({ userName, tenantName, tenants }: SidebarProps) {
+export function Sidebar({ userName, tenantName, tenants, unreadNotifications }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -106,16 +108,19 @@ export function Sidebar({ userName, tenantName, tenants }: SidebarProps) {
 
       <div className="border-t border-white/10 p-4">
         <div className="flex items-center justify-between">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{userName}</p>
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="rounded-md p-1.5 text-sidebar-foreground/60 hover:bg-white/5 hover:text-sidebar-foreground"
-            title="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationBell initialCount={unreadNotifications} />
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="rounded-md p-1.5 text-sidebar-foreground/60 hover:bg-white/5 hover:text-sidebar-foreground"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </>

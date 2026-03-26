@@ -1,0 +1,786 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import prisma from "@/lib/db";
+import { getCurrentUser, requireRole } from "@/lib/auth-utils";
+import { createAuditLog } from "@/lib/utils/audit";
+import type { Role } from "@/generated/prisma";
+
+// ─── Company / Tenant Management ─────────────────────────────────────────────
+
+/**
+ * Creates a new tenant with default chart of accounts and auto-creates
+ * an ADMIN membership for the current user.
+ */
+export async function createTenant(data: {
+  name: string;
+  cnpj: string;
+  slug: string;
+}) {
+  const user = await requireRole(["ADMIN"]);
+
+  const existing = await prisma.tenant.findUnique({
+    where: { slug: data.slug },
+  });
+  if (existing) {
+    throw new Error("Já existe uma empresa com esse slug");
+  }
+
+  const tenant = await prisma.$transaction(async (tx) => {
+    const newTenant = await tx.tenant.create({
+      data: {
+        name: data.name,
+        cnpj: data.cnpj,
+        slug: data.slug,
+      },
+    });
+
+    // Auto-create ADMIN membership for current user
+    await tx.membership.create({
+      data: {
+        userId: user.id,
+        tenantId: newTenant.id,
+        role: "ADMIN",
+        isDefault: false,
+      },
+    });
+
+    // Create default chart of accounts (top-level groups)
+    const defaultAccounts = [
+      { code: "1", name: "ATIVO", type: "ASSET" as const, level: 1 },
+      { code: "2", name: "PASSIVO", type: "LIABILITY" as const, level: 1 },
+      { code: "3", name: "PATRIMONIO LIQUIDO", type: "EQUITY" as const, level: 1 },
+      { code: "4", name: "RECEITAS", type: "REVENUE" as const, level: 1 },
+      { code: "5", name: "DESPESAS", type: "EXPENSE" as const, level: 1 },
+    ];
+
+    for (const account of defaultAccounts) {
+      await tx.chartOfAccount.create({
+        data: {
+          tenantId: newTenant.id,
+          code: account.code,
+          name: account.name,
+          type: account.type,
+          level: account.level,
+          isAnalytic: false,
+        },
+      });
+    }
+
+    return newTenant;
+  });
+
+  await createAuditLog({
+    tenantId: tenant.id,
+    tableName: "Tenant",
+    recordId: tenant.id,
+    action: "CREATE",
+    newValues: { name: data.name, cnpj: data.cnpj, slug: data.slug },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/tenants");
+
+  return tenant;
+}
+
+/**
+ * Updates tenant fields. Verifies the user has ADMIN membership in the target tenant.
+ */
+export async function updateTenant(
+  tenantId: string,
+  data: {
+    name?: string;
+    cnpj?: string;
+    active?: boolean;
+    logoUrl?: string;
+  }
+) {
+  const user = await requireRole(["ADMIN"]);
+
+  // Verify ADMIN membership in target tenant
+  const membership = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId: user.id, tenantId } },
+  });
+  if (!membership || membership.role !== "ADMIN") {
+    throw new Error("Acesso negado: você não é administrador desta empresa");
+  }
+
+  const oldTenant = await prisma.tenant.findUniqueOrThrow({
+    where: { id: tenantId },
+  });
+
+  const updated = await prisma.tenant.update({
+    where: { id: tenantId },
+    data,
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "Tenant",
+    recordId: tenantId,
+    action: "UPDATE",
+    oldValues: { name: oldTenant.name, cnpj: oldTenant.cnpj, active: oldTenant.active, logoUrl: oldTenant.logoUrl },
+    newValues: data,
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/tenants");
+
+  return updated;
+}
+
+/**
+ * Returns all tenants the user belongs to with membership counts,
+ * staging pending counts, and overdue counts.
+ */
+export async function listAllUserTenants() {
+  const user = await getCurrentUser();
+
+  const memberships = await prisma.membership.findMany({
+    where: { userId: user.id },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          cnpj: true,
+          slug: true,
+          active: true,
+          logoUrl: true,
+        },
+      },
+    },
+    orderBy: { tenant: { name: "asc" } },
+  });
+
+  const tenantIds = memberships.map((m) => m.tenantId);
+
+  // Efficient aggregation queries in parallel
+  const [memberCounts, stagingPendingCounts, overdueCounts] = await Promise.all([
+    prisma.membership.groupBy({
+      by: ["tenantId"],
+      where: { tenantId: { in: tenantIds } },
+      _count: { id: true },
+    }),
+    prisma.stagingEntry.groupBy({
+      by: ["tenantId"],
+      where: {
+        tenantId: { in: tenantIds },
+        status: { in: ["PENDING", "AUTO_CLASSIFIED"] },
+      },
+      _count: { id: true },
+    }),
+    prisma.officialEntry.groupBy({
+      by: ["tenantId"],
+      where: {
+        tenantId: { in: tenantIds },
+        status: "OPEN",
+        dueDate: { lt: new Date() },
+        category: { in: ["PAYABLE", "RECEIVABLE"] },
+      },
+      _count: { id: true },
+    }),
+  ]);
+
+  const memberCountMap = Object.fromEntries(
+    memberCounts.map((c) => [c.tenantId, c._count.id])
+  );
+  const stagingPendingMap = Object.fromEntries(
+    stagingPendingCounts.map((c) => [c.tenantId, c._count.id])
+  );
+  const overdueMap = Object.fromEntries(
+    overdueCounts.map((c) => [c.tenantId, c._count.id])
+  );
+
+  return memberships.map((m) => ({
+    tenantId: m.tenantId,
+    tenant: m.tenant,
+    role: m.role,
+    isDefault: m.isDefault,
+    memberCount: memberCountMap[m.tenantId] ?? 0,
+    stagingPendingCount: stagingPendingMap[m.tenantId] ?? 0,
+    overdueCount: overdueMap[m.tenantId] ?? 0,
+  }));
+}
+
+/**
+ * Returns detailed stats for a tenant. Verifies user membership.
+ */
+export async function getTenantStats(tenantId: string) {
+  const user = await getCurrentUser();
+
+  const membership = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId: user.id, tenantId } },
+  });
+  if (!membership) {
+    throw new Error("Você não tem acesso a essa empresa");
+  }
+
+  const now = new Date();
+
+  const [
+    memberCount,
+    stagingPending,
+    entriesCount,
+    overduePayables,
+    overdueReceivables,
+    lastImport,
+  ] = await Promise.all([
+    prisma.membership.count({ where: { tenantId } }),
+    prisma.stagingEntry.count({
+      where: { tenantId, status: { in: ["PENDING", "AUTO_CLASSIFIED"] } },
+    }),
+    prisma.officialEntry.count({ where: { tenantId } }),
+    prisma.officialEntry.count({
+      where: {
+        tenantId,
+        status: "OPEN",
+        category: "PAYABLE",
+        dueDate: { lt: now },
+      },
+    }),
+    prisma.officialEntry.count({
+      where: {
+        tenantId,
+        status: "OPEN",
+        category: "RECEIVABLE",
+        dueDate: { lt: now },
+      },
+    }),
+    prisma.importBatch.findFirst({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    }),
+  ]);
+
+  return {
+    memberCount,
+    stagingPending,
+    entriesCount,
+    overduePayables,
+    overdueReceivables,
+    lastImportDate: lastImport?.createdAt ?? null,
+  };
+}
+
+// ─── User / Invite Management ────────────────────────────────────────────────
+
+/**
+ * Lists all members of the current user's active tenant with user info.
+ */
+export async function listTenantMembers() {
+  const user = await getCurrentUser();
+
+  return prisma.membership.findMany({
+    where: { tenantId: user.tenantId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Invites a user to the current tenant. If user already exists in system,
+ * adds membership directly. If already a member, throws error.
+ * Creates TenantInvite with 7-day expiry for new users.
+ */
+export async function inviteUserToTenant(email: string, role: Role) {
+  const user = await requireRole(["ADMIN"]);
+  const tenantId = user.tenantId;
+
+  // Check if already a member
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      memberships: {
+        where: { tenantId },
+      },
+    },
+  });
+
+  if (existingUser?.memberships.length) {
+    throw new Error("Este usuário já é membro desta empresa");
+  }
+
+  // If user exists in system, add membership directly
+  if (existingUser) {
+    const membership = await prisma.membership.create({
+      data: {
+        userId: existingUser.id,
+        tenantId,
+        role,
+        isDefault: false,
+      },
+    });
+
+    // Create a notification for the user
+    await prisma.notification.create({
+      data: {
+        userId: existingUser.id,
+        tenantId,
+        type: "INVITE_RECEIVED",
+        title: "Novo acesso concedido",
+        message: `Você foi adicionado à empresa como ${role}`,
+        href: "/dashboard",
+      },
+    });
+
+    await createAuditLog({
+      tenantId,
+      tableName: "Membership",
+      recordId: membership.id,
+      action: "CREATE",
+      newValues: { email, role, directAdd: true },
+      userId: user.id,
+      userEmail: user.email,
+    });
+
+    revalidatePath("/admin/members");
+    return { type: "direct" as const, membership };
+  }
+
+  // Check for existing pending invite
+  const existingInvite = await prisma.tenantInvite.findUnique({
+    where: { tenantId_email: { tenantId, email } },
+  });
+  if (existingInvite && existingInvite.status === "PENDING") {
+    throw new Error("Já existe um convite pendente para este email");
+  }
+
+  // Create or upsert invite with 7-day expiry
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const invite = await prisma.tenantInvite.upsert({
+    where: { tenantId_email: { tenantId, email } },
+    create: {
+      tenantId,
+      email,
+      role,
+      status: "PENDING",
+      expiresAt,
+      createdById: user.id,
+    },
+    update: {
+      role,
+      status: "PENDING",
+      expiresAt,
+      createdById: user.id,
+    },
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "TenantInvite",
+    recordId: invite.id,
+    action: "CREATE",
+    newValues: { email, role },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/admin/invites");
+  return { type: "invite" as const, invite };
+}
+
+/**
+ * Lists pending invites for the current tenant. ADMIN only.
+ */
+export async function listTenantInvites() {
+  const user = await requireRole(["ADMIN"]);
+
+  return prisma.tenantInvite.findMany({
+    where: {
+      tenantId: user.tenantId,
+      status: "PENDING",
+    },
+    include: {
+      createdBy: {
+        select: { name: true, email: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Cancels a pending invite. ADMIN only.
+ */
+export async function cancelInvite(inviteId: string) {
+  const user = await requireRole(["ADMIN"]);
+
+  const invite = await prisma.tenantInvite.findUniqueOrThrow({
+    where: { id: inviteId },
+  });
+
+  if (invite.tenantId !== user.tenantId) {
+    throw new Error("Convite não pertence a esta empresa");
+  }
+
+  if (invite.status !== "PENDING") {
+    throw new Error("Apenas convites pendentes podem ser cancelados");
+  }
+
+  const updated = await prisma.tenantInvite.update({
+    where: { id: inviteId },
+    data: { status: "CANCELLED" },
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "TenantInvite",
+    recordId: inviteId,
+    action: "UPDATE",
+    oldValues: { status: "PENDING" },
+    newValues: { status: "CANCELLED" },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/admin/invites");
+  return updated;
+}
+
+/**
+ * Accepts an invite by token. Creates membership for the current user.
+ */
+export async function acceptInvite(token: string) {
+  const user = await getCurrentUser();
+
+  const invite = await prisma.tenantInvite.findUnique({
+    where: { token },
+    include: { tenant: { select: { name: true } } },
+  });
+
+  if (!invite) {
+    throw new Error("Convite não encontrado");
+  }
+
+  if (invite.status !== "PENDING") {
+    throw new Error("Este convite já foi utilizado ou cancelado");
+  }
+
+  if (new Date() > invite.expiresAt) {
+    await prisma.tenantInvite.update({
+      where: { id: invite.id },
+      data: { status: "EXPIRED" },
+    });
+    throw new Error("Este convite expirou");
+  }
+
+  // Check if user is already a member
+  const existingMembership = await prisma.membership.findUnique({
+    where: {
+      userId_tenantId: { userId: user.id, tenantId: invite.tenantId },
+    },
+  });
+  if (existingMembership) {
+    throw new Error("Você já é membro desta empresa");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const membership = await tx.membership.create({
+      data: {
+        userId: user.id,
+        tenantId: invite.tenantId,
+        role: invite.role,
+        isDefault: false,
+      },
+    });
+
+    await tx.tenantInvite.update({
+      where: { id: invite.id },
+      data: { status: "ACCEPTED" },
+    });
+
+    return membership;
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/admin/members");
+
+  return { membership: result, tenantName: invite.tenant.name };
+}
+
+/**
+ * Updates a member's role. ADMIN only. Cannot change own role.
+ */
+export async function updateMemberRole(membershipId: string, newRole: Role) {
+  const user = await requireRole(["ADMIN"]);
+
+  const membership = await prisma.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+  });
+
+  if (membership.tenantId !== user.tenantId) {
+    throw new Error("Membro não pertence a esta empresa");
+  }
+
+  if (membership.userId === user.id) {
+    throw new Error("Você não pode alterar seu próprio cargo");
+  }
+
+  const oldRole = membership.role;
+
+  const updated = await prisma.membership.update({
+    where: { id: membershipId },
+    data: { role: newRole },
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "Membership",
+    recordId: membershipId,
+    action: "UPDATE",
+    oldValues: { role: oldRole },
+    newValues: { role: newRole },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/admin/members");
+  return updated;
+}
+
+/**
+ * Removes a member from the tenant. ADMIN only. Cannot remove self.
+ */
+export async function removeMember(membershipId: string) {
+  const user = await requireRole(["ADMIN"]);
+
+  const membership = await prisma.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+    include: {
+      user: { select: { email: true } },
+    },
+  });
+
+  if (membership.tenantId !== user.tenantId) {
+    throw new Error("Membro não pertence a esta empresa");
+  }
+
+  if (membership.userId === user.id) {
+    throw new Error("Você não pode remover a si mesmo da empresa");
+  }
+
+  await prisma.membership.delete({
+    where: { id: membershipId },
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "Membership",
+    recordId: membershipId,
+    action: "DELETE",
+    oldValues: {
+      userId: membership.userId,
+      email: membership.user.email,
+      role: membership.role,
+    },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/admin/members");
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+/**
+ * Returns the last 50 notifications for the current user.
+ */
+export async function listNotifications() {
+  const user = await getCurrentUser();
+
+  return prisma.notification.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+}
+
+/**
+ * Marks a single notification as read.
+ */
+export async function markNotificationRead(id: string) {
+  const user = await getCurrentUser();
+
+  const notification = await prisma.notification.findUniqueOrThrow({
+    where: { id },
+  });
+
+  if (notification.userId !== user.id) {
+    throw new Error("Notificação não pertence a este usuário");
+  }
+
+  return prisma.notification.update({
+    where: { id },
+    data: { read: true },
+  });
+}
+
+/**
+ * Marks all notifications as read for the current user.
+ */
+export async function markAllNotificationsRead() {
+  const user = await getCurrentUser();
+
+  await prisma.notification.updateMany({
+    where: { userId: user.id, read: false },
+    data: { read: true },
+  });
+
+  revalidatePath("/dashboard");
+}
+
+/**
+ * Returns the count of unread notifications.
+ */
+export async function getUnreadNotificationCount() {
+  const user = await getCurrentUser();
+
+  return prisma.notification.count({
+    where: { userId: user.id, read: false },
+  });
+}
+
+/**
+ * Checks all user's tenants for actionable items and creates notifications.
+ * Checks: pending staging entries, overdue payables, overdue receivables.
+ * Meant to be called periodically or on dashboard load.
+ */
+export async function generateCrossTenantNotifications() {
+  const user = await getCurrentUser();
+
+  const memberships = await prisma.membership.findMany({
+    where: { userId: user.id },
+    select: { tenantId: true, tenant: { select: { name: true } } },
+  });
+
+  const tenantIds = memberships.map((m) => m.tenantId);
+  const tenantNameMap = Object.fromEntries(
+    memberships.map((m) => [m.tenantId, m.tenant.name])
+  );
+
+  const now = new Date();
+  const notifications: Array<{
+    userId: string;
+    tenantId: string;
+    type: "STAGING_PENDING" | "OVERDUE_PAYABLE" | "OVERDUE_RECEIVABLE";
+    title: string;
+    message: string;
+    href: string;
+  }> = [];
+
+  // Aggregate counts across all tenants
+  const [stagingCounts, overduePayableCounts, overdueReceivableCounts] =
+    await Promise.all([
+      prisma.stagingEntry.groupBy({
+        by: ["tenantId"],
+        where: {
+          tenantId: { in: tenantIds },
+          status: { in: ["PENDING", "AUTO_CLASSIFIED"] },
+        },
+        _count: { id: true },
+      }),
+      prisma.officialEntry.groupBy({
+        by: ["tenantId"],
+        where: {
+          tenantId: { in: tenantIds },
+          status: "OPEN",
+          category: "PAYABLE",
+          dueDate: { lt: now },
+        },
+        _count: { id: true },
+      }),
+      prisma.officialEntry.groupBy({
+        by: ["tenantId"],
+        where: {
+          tenantId: { in: tenantIds },
+          status: "OPEN",
+          category: "RECEIVABLE",
+          dueDate: { lt: now },
+        },
+        _count: { id: true },
+      }),
+    ]);
+
+  // Check for recent duplicate notifications (last 24h) to avoid spamming
+  const recentCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const recentNotifications = await prisma.notification.findMany({
+    where: {
+      userId: user.id,
+      createdAt: { gte: recentCutoff },
+      type: { in: ["STAGING_PENDING", "OVERDUE_PAYABLE", "OVERDUE_RECEIVABLE"] },
+    },
+    select: { tenantId: true, type: true },
+  });
+
+  const recentSet = new Set(
+    recentNotifications.map((n) => `${n.tenantId}:${n.type}`)
+  );
+
+  for (const sc of stagingCounts) {
+    if (sc._count.id > 0 && !recentSet.has(`${sc.tenantId}:STAGING_PENDING`)) {
+      notifications.push({
+        userId: user.id,
+        tenantId: sc.tenantId,
+        type: "STAGING_PENDING",
+        title: `Lançamentos pendentes - ${tenantNameMap[sc.tenantId]}`,
+        message: `Existem ${sc._count.id} lançamentos aguardando validação`,
+        href: "/staging",
+      });
+    }
+  }
+
+  for (const op of overduePayableCounts) {
+    if (op._count.id > 0 && !recentSet.has(`${op.tenantId}:OVERDUE_PAYABLE`)) {
+      notifications.push({
+        userId: user.id,
+        tenantId: op.tenantId,
+        type: "OVERDUE_PAYABLE",
+        title: `Contas a pagar vencidas - ${tenantNameMap[op.tenantId]}`,
+        message: `Existem ${op._count.id} contas a pagar vencidas`,
+        href: "/financial/payables",
+      });
+    }
+  }
+
+  for (const or of overdueReceivableCounts) {
+    if (or._count.id > 0 && !recentSet.has(`${or.tenantId}:OVERDUE_RECEIVABLE`)) {
+      notifications.push({
+        userId: user.id,
+        tenantId: or.tenantId,
+        type: "OVERDUE_RECEIVABLE",
+        title: `Contas a receber vencidas - ${tenantNameMap[or.tenantId]}`,
+        message: `Existem ${or._count.id} contas a receber vencidas`,
+        href: "/financial/receivables",
+      });
+    }
+  }
+
+  if (notifications.length > 0) {
+    await prisma.notification.createMany({
+      data: notifications,
+    });
+  }
+
+  revalidatePath("/dashboard");
+
+  return { created: notifications.length };
+}

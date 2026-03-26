@@ -13,8 +13,8 @@ export default async function AppLayout({
 
   const user = session.user as any;
 
-  // Fetch current tenant name and all user memberships in parallel
-  const [tenant, memberships] = await Promise.all([
+  // Fetch current tenant name, memberships, and unread notifications in parallel
+  const [tenant, memberships, unreadNotifications] = await Promise.all([
     user.tenantId
       ? prisma.tenant.findUnique({
           where: { id: user.tenantId },
@@ -29,6 +29,9 @@ export default async function AppLayout({
         },
       },
       orderBy: { tenant: { name: "asc" } },
+    }),
+    prisma.notification.count({
+      where: { userId: user.id, read: false },
     }),
   ]);
 
@@ -50,6 +53,7 @@ export default async function AppLayout({
         userName={user.name || "Usuário"}
         tenantName={tenantName}
         tenants={tenants}
+        unreadNotifications={unreadNotifications}
       />
       <main className="flex-1 overflow-y-auto bg-background">
         <div className="p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>

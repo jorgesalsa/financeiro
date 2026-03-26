@@ -25,6 +25,8 @@ import {
   Shield,
   Settings,
   Plug,
+  Layers,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -45,6 +47,7 @@ export const navigation: NavGroup[] = [
     label: "Principal",
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Painel Geral", href: "/dashboard/multi-tenant", icon: Layers },
     ],
   },
   {
@@ -127,7 +130,9 @@ export const navigation: NavGroup[] = [
   {
     label: "Configurações",
     items: [
-      { title: "Configurações", href: "/settings/general", icon: Settings },
+      { title: "Geral", href: "/settings/general", icon: Settings },
+      { title: "Empresas", href: "/settings/companies", icon: Building2 },
+      { title: "Usuários", href: "/settings/users", icon: UserCog },
     ],
   },
 ];
