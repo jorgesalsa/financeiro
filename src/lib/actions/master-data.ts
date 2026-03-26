@@ -843,3 +843,91 @@ export async function listChartTemplates() {
     accountCount: t.accounts.length,
   }));
 }
+
+// ─── Product Templates ──────────────────────────────────
+
+export async function applyProductTemplate(
+  templateId: string,
+  options?: { clearExisting?: boolean }
+) {
+  const user = await requireRole(["ADMIN"]);
+
+  const { PRODUCT_TEMPLATES } = await import("@/lib/constants/product-templates");
+  const template = PRODUCT_TEMPLATES.find((t) => t.id === templateId);
+  if (!template) throw new Error("Template de produtos não encontrado");
+
+  const result = await prisma.$transaction(async (tx) => {
+    if (options?.clearExisting) {
+      // Check for stock movements or purchase invoice items referencing products
+      const movementsCount = await tx.stockMovement.count({
+        where: { product: { tenantId: user.tenantId } },
+      });
+      const invoiceItemsCount = await tx.purchaseInvoiceItem.count({
+        where: { product: { tenantId: user.tenantId } },
+      });
+      if (movementsCount > 0 || invoiceItemsCount > 0) {
+        throw new Error(
+          `Não é possível substituir os produtos: existem ${movementsCount} movimentação(ões) de estoque e ${invoiceItemsCount} item(ns) de nota fiscal vinculados.`
+        );
+      }
+
+      await tx.product.deleteMany({
+        where: { tenantId: user.tenantId },
+      });
+    }
+
+    let created = 0;
+
+    for (const prod of template.products) {
+      // Skip if code already exists (when not clearing)
+      if (!options?.clearExisting) {
+        const existing = await tx.product.findUnique({
+          where: { tenantId_code: { tenantId: user.tenantId, code: prod.code } },
+        });
+        if (existing) continue;
+      }
+
+      await tx.product.create({
+        data: {
+          tenantId: user.tenantId,
+          code: prod.code,
+          name: prod.name,
+          description: prod.description ?? null,
+          unit: prod.unit,
+          costPrice: prod.costPrice,
+          salePrice: prod.salePrice,
+          minStock: 0,
+          reorderPoint: 0,
+          active: true,
+        },
+      });
+      created++;
+    }
+
+    return created;
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "Product",
+    recordId: "template",
+    action: "CREATE",
+    newValues: { templateId, clearExisting: options?.clearExisting, count: result },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/master-data/products");
+
+  return { created: result, templateName: template.name };
+}
+
+export async function listProductTemplates() {
+  const { PRODUCT_TEMPLATES } = await import("@/lib/constants/product-templates");
+  return PRODUCT_TEMPLATES.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    productCount: t.products.length,
+  }));
+}
