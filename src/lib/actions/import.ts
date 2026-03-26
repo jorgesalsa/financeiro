@@ -8,6 +8,7 @@ import { parseOFX } from "@/lib/utils/ofx-parser";
 import { parseCSV } from "@/lib/utils/csv-parser";
 import { parseExcel } from "@/lib/utils/excel-parser";
 import { classifyStagingEntries } from "@/lib/services/classification";
+import { parseNFeXMLRaw } from "@/lib/qive";
 
 export async function importBankStatement(formData: FormData) {
   const user = await getCurrentUser();
@@ -355,6 +356,141 @@ export async function importTaxInvoices(formData: FormData) {
   } catch (err: any) {
     await prisma.importBatch.update({ where: { id: batch.id }, data: { status: "FAILED" } });
     throw new Error(`Erro na importação: ${err.message}`);
+  }
+}
+
+export async function importTaxInvoicesXML(formData: FormData) {
+  const user = await getCurrentUser();
+  const files = formData.getAll("files") as File[];
+
+  if (!files || files.length === 0) throw new Error("Selecione ao menos um arquivo XML");
+
+  // Validate all files are XML
+  for (const file of files) {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".xml")) {
+      throw new Error(`Arquivo "${file.name}" não é XML. Envie apenas arquivos .xml`);
+    }
+  }
+
+  const batch = await prisma.importBatch.create({
+    data: {
+      tenantId: user.tenantId,
+      type: "TAX_INVOICE",
+      fileName: files.length === 1 ? files[0].name : `${files.length} arquivos XML`,
+      status: "PROCESSING",
+      totalRecords: files.length,
+      processedRecords: 0,
+      errorRecords: 0,
+      importedById: user.id,
+    },
+  });
+
+  try {
+    let processed = 0;
+    let errors = 0;
+    const errorMessages: string[] = [];
+
+    for (const file of files) {
+      try {
+        const xmlContent = await file.text();
+
+        // Check if file contains multiple NFes (e.g. from a ZIP export or concatenated file)
+        // Split by <nfeProc or <NFe tags
+        const nfeBlocks: string[] = [];
+        const nfeProcRegex = /<nfeProc[^>]*>[\s\S]*?<\/nfeProc>/gi;
+        const nfeProcMatches = xmlContent.match(nfeProcRegex);
+
+        if (nfeProcMatches && nfeProcMatches.length > 0) {
+          nfeBlocks.push(...nfeProcMatches);
+        } else {
+          // Try matching standalone <NFe> blocks
+          const nfeRegex = /<NFe[^>]*>[\s\S]*?<\/NFe>/gi;
+          const nfeMatches = xmlContent.match(nfeRegex);
+          if (nfeMatches && nfeMatches.length > 0) {
+            nfeBlocks.push(...nfeMatches);
+          } else {
+            // Treat entire file as a single NFe
+            nfeBlocks.push(xmlContent);
+          }
+        }
+
+        for (const nfeXml of nfeBlocks) {
+          const parsed = parseNFeXMLRaw(nfeXml);
+
+          if (!parsed.invoiceNumber && !parsed.cnpjIssuer) {
+            errorMessages.push(`${file.name}: XML não contém dados de NFe válidos`);
+            errors++;
+            continue;
+          }
+
+          // Deduplicate by accessKey if available
+          if (parsed.accessKey) {
+            const existing = await prisma.taxInvoiceLine.findFirst({
+              where: {
+                tenantId: user.tenantId,
+                accessKey: parsed.accessKey,
+              },
+            });
+            if (existing) {
+              // Skip duplicate
+              continue;
+            }
+          }
+
+          await prisma.taxInvoiceLine.create({
+            data: {
+              tenantId: user.tenantId,
+              importBatchId: batch.id,
+              invoiceNumber: parsed.invoiceNumber,
+              series: parsed.series || "",
+              issueDate: parsed.issueDate,
+              cnpjIssuer: parsed.cnpjIssuer,
+              issuerName: parsed.issuerName,
+              cnpjRecipient: parsed.cnpjRecipient,
+              cfop: parsed.cfop,
+              productDescription: parsed.productDescription,
+              quantity: 1,
+              unitPrice: parsed.totalValue,
+              totalValue: parsed.totalValue,
+              icmsValue: parsed.icmsValue,
+              ipiValue: parsed.ipiValue,
+              pisValue: parsed.pisValue,
+              cofinsValue: parsed.cofinsValue,
+              accessKey: parsed.accessKey || null,
+              externalId: parsed.accessKey || null,
+            },
+          });
+
+          processed++;
+        }
+      } catch (fileErr: any) {
+        errorMessages.push(`${file.name}: ${fileErr.message}`);
+        errors++;
+      }
+    }
+
+    await prisma.importBatch.update({
+      where: { id: batch.id },
+      data: {
+        status: errors > 0 && processed === 0 ? "FAILED" : "COMPLETED",
+        processedRecords: processed,
+        errorRecords: errors,
+        totalRecords: processed + errors,
+        completedAt: new Date(),
+      },
+    });
+
+    revalidatePath("/imports/tax-invoices");
+    return {
+      batchId: batch.id,
+      total: processed,
+      errors,
+      errorMessages: errorMessages.length > 0 ? errorMessages : undefined,
+    };
+  } catch (err: any) {
+    await prisma.importBatch.update({ where: { id: batch.id }, data: { status: "FAILED" } });
+    throw new Error(`Erro na importação XML: ${err.message}`);
   }
 }
 

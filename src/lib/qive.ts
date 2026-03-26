@@ -209,3 +209,76 @@ export function parseNFeXML(xmlBase64: string, accessKey: string): ParsedNFe {
     productDescription,
   };
 }
+
+/**
+ * Parse raw NFe XML string (not base64) into structured data.
+ * Used for direct XML file uploads.
+ */
+export function parseNFeXMLRaw(xml: string): ParsedNFe {
+  // Try to extract access key from <infNFe Id="NFe..."> or <chNFe>
+  let accessKey = "";
+  const infNFeMatch = xml.match(/<infNFe[^>]*Id="NFe([^"]+)"/i);
+  if (infNFeMatch) {
+    accessKey = infNFeMatch[1];
+  } else {
+    const chNFeMatch = xml.match(/<chNFe>([^<]+)<\/chNFe>/i);
+    if (chNFeMatch) accessKey = chNFeMatch[1];
+  }
+
+  // Extract emitter (emit) section
+  const emitSection = xml.match(/<emit>([\s\S]*?)<\/emit>/)?.[1] || "";
+  const cnpjIssuer = extractTag(emitSection, "CNPJ");
+  const issuerName = extractTag(emitSection, "xNome");
+
+  // Extract recipient (dest) section
+  const destSection = xml.match(/<dest>([\s\S]*?)<\/dest>/)?.[1] || "";
+  const cnpjRecipient =
+    extractTag(destSection, "CNPJ") || extractTag(destSection, "CPF");
+
+  // Extract invoice identification (ide)
+  const ideSection = xml.match(/<ide>([\s\S]*?)<\/ide>/)?.[1] || "";
+  const invoiceNumber = extractTag(ideSection, "nNF");
+  const series = extractTag(ideSection, "serie");
+  const issueDateStr = extractTag(ideSection, "dhEmi");
+
+  let issueDate: Date;
+  if (issueDateStr) {
+    issueDate = new Date(issueDateStr);
+    if (isNaN(issueDate.getTime())) issueDate = new Date();
+  } else {
+    issueDate = new Date();
+  }
+
+  // Extract totals (ICMSTot)
+  const totSection =
+    xml.match(/<ICMSTot>([\s\S]*?)<\/ICMSTot>/)?.[1] || "";
+  const totalValue = extractNumber(totSection, "vNF");
+  const icmsValue = extractNumber(totSection, "vICMS");
+  const ipiValue = extractNumber(totSection, "vIPI");
+  const pisValue = extractNumber(totSection, "vPIS");
+  const cofinsValue = extractNumber(totSection, "vCOFINS");
+
+  // Extract first product info
+  const detSection = xml.match(/<det[^>]*>([\s\S]*?)<\/det>/)?.[1] || "";
+  const prodSection =
+    detSection.match(/<prod>([\s\S]*?)<\/prod>/)?.[1] || "";
+  const cfop = extractTag(prodSection, "CFOP");
+  const productDescription = extractTag(prodSection, "xProd");
+
+  return {
+    accessKey,
+    invoiceNumber,
+    series,
+    issueDate,
+    cnpjIssuer,
+    issuerName,
+    cnpjRecipient,
+    totalValue,
+    cfop,
+    icmsValue,
+    ipiValue,
+    pisValue,
+    cofinsValue,
+    productDescription,
+  };
+}

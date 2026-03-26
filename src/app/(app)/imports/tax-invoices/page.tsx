@@ -9,7 +9,7 @@ export default async function TaxInvoicesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Importar Notas Fiscais"
-        description="Importe notas fiscais em formato CSV, TXT ou XLSX"
+        description="Importe notas fiscais via CSV, XLSX ou diretamente por arquivo XML de NFe"
       />
       <TaxInvoiceImportClient batches={batches as any} />
     </div>

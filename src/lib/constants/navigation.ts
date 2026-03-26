@@ -63,7 +63,7 @@ export const navigation: NavGroup[] = [
   {
     label: "Importações",
     items: [
-      { title: "Notas Fiscais (CSV)", href: "/imports/tax-invoices", icon: Upload },
+      { title: "Notas Fiscais (CSV/XML)", href: "/imports/tax-invoices", icon: Upload },
       { title: "QIVE (Automático)", href: "/imports/qive", icon: Plug },
       { title: "Extrato Bancário", href: "/imports/bank-statements", icon: Upload },
       { title: "Cartões", href: "/imports/card-transactions", icon: Upload },
