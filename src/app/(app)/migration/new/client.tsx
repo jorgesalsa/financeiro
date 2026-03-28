@@ -43,7 +43,6 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
   const [batchType, setBatchType] = useState("FULL_INITIAL_LOAD");
   const [description, setDescription] = useState("");
   const [sourceErpName, setSourceErpName] = useState("");
-  const [expectedTotal, setExpectedTotal] = useState("");
 
   // Step 2 state
   const [batchId, setBatchId] = useState<string | null>(null);
@@ -73,7 +72,6 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
           type: batchType,
           description: description.trim() || undefined,
           sourceErpName: sourceErpName.trim() || undefined,
-          expectedTotalAmount: expectedTotal ? parseFloat(expectedTotal) : undefined,
         });
         setBatchId(batch.id);
         setStep(1);
@@ -223,16 +221,6 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
                     <option value="DOMINIO">Dominio</option>
                     <option value="OUTROS">Outros</option>
                   </Select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Valor Total Esperado (R$)</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={expectedTotal}
-                    onChange={(e) => setExpectedTotal(e.target.value)}
-                    placeholder="Para conferencia..."
-                  />
                 </div>
               </div>
 
