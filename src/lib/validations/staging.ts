@@ -14,6 +14,9 @@ export const stagingEntrySchema = z.object({
   bankAccountId: z.string().nullable().optional(),
   paymentMethodId: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  // RA05: 4-layer taxonomy
+  movementType: z.enum(["ENTRY", "EXIT", "TRANSFER", "ADJUSTMENT"]).nullable().optional(),
+  financialNature: z.enum(["OPERATIONAL", "NON_OPERATIONAL", "FINANCIAL", "PATRIMONIAL"]).nullable().optional(),
 });
 
 export type StagingEntryInput = z.infer<typeof stagingEntrySchema>;

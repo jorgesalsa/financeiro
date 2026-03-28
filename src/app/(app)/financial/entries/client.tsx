@@ -18,16 +18,20 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import {
   ENTRY_STATUS_LABELS,
   ENTRY_STATUS_COLORS,
+  MOVEMENT_TYPE_LABELS,
+  FINANCIAL_NATURE_LABELS,
+  CLASSIFICATION_STATUS_LABELS,
+  CLASSIFICATION_STATUS_COLORS,
 } from "@/lib/constants/statuses";
-import type { EntryStatus, EntryCategory } from "@/generated/prisma";
+import type { EntryStatus, EntryCategory, MovementType, FinancialNature, ClassificationStatus } from "@/generated/prisma";
 import {
   DollarSign,
   CreditCard,
   XCircle,
   Layers,
+  Pencil,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import prisma from "@/lib/db";
 
 const CATEGORY_LABELS: Record<string, string> = {
   PAYABLE: "A Pagar",
@@ -40,6 +44,7 @@ type OfficialEntry = {
   id: string;
   sequentialNumber: number | null;
   date: string | Date;
+  competenceDate?: string | Date | null;
   description: string;
   amount: number;
   transactionType: string;
@@ -47,6 +52,11 @@ type OfficialEntry = {
   status: EntryStatus;
   dueDate: string | Date | null;
   paidAmount: number;
+  movementType?: string | null;
+  financialNature?: string | null;
+  classificationStatus?: string | null;
+  version?: number;
+  manuallyEdited?: boolean;
   chartOfAccount?: { code: string; name: string } | null;
   costCenter?: { code: string; name: string } | null;
   supplier?: { name: string } | null;
@@ -178,6 +188,14 @@ export function EntriesClient({
     {
       accessorKey: "description",
       header: "Descricao",
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <span>{row.original.description}</span>
+          {row.original.manuallyEdited && (
+            <span title="Editado manualmente"><Pencil className="h-3 w-3 text-amber-500" /></span>
+          )}
+        </div>
+      ),
     },
     {
       accessorKey: "amount",
@@ -203,6 +221,18 @@ export function EntriesClient({
       ),
     },
     {
+      accessorKey: "movementType",
+      header: "Mov.",
+      cell: ({ row }) => {
+        const mt = row.original.movementType;
+        return mt ? (
+          <Badge variant="outline" className="text-xs">
+            {MOVEMENT_TYPE_LABELS[mt as keyof typeof MOVEMENT_TYPE_LABELS] ?? mt}
+          </Badge>
+        ) : "—";
+      },
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
@@ -210,6 +240,18 @@ export function EntriesClient({
           {ENTRY_STATUS_LABELS[row.original.status]}
         </Badge>
       ),
+    },
+    {
+      id: "classificationStatus",
+      header: "Class.",
+      cell: ({ row }) => {
+        const cs = row.original.classificationStatus;
+        return cs ? (
+          <Badge className={CLASSIFICATION_STATUS_COLORS[cs as keyof typeof CLASSIFICATION_STATUS_COLORS] ?? ""}>
+            {CLASSIFICATION_STATUS_LABELS[cs as keyof typeof CLASSIFICATION_STATUS_LABELS] ?? cs}
+          </Badge>
+        ) : "—";
+      },
     },
     {
       id: "chartOfAccount",
@@ -415,6 +457,10 @@ export function EntriesClient({
               <div>
                 <label className="text-sm font-medium">Desconto</label>
                 <Input name="discount" type="number" step="0.01" defaultValue={0} />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data Liquidação</label>
+                <Input name="settlementDate" type="date" />
               </div>
               <div>
                 <label className="text-sm font-medium">Conta Bancaria *</label>

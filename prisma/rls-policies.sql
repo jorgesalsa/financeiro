@@ -520,6 +520,101 @@ CREATE POLICY "AuditLog_tenant_isolation" ON "AuditLog"
 
 ALTER TABLE "AuditLog" FORCE ROW LEVEL SECURITY;
 
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- InternalTransfer (RA06)
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALTER TABLE "InternalTransfer" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "InternalTransfer_tenant_isolation" ON "InternalTransfer"
+  USING (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  )
+  WITH CHECK (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  );
+
+ALTER TABLE "InternalTransfer" FORCE ROW LEVEL SECURITY;
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- ValidationRule (RA03)
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALTER TABLE "ValidationRule" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "ValidationRule_tenant_isolation" ON "ValidationRule"
+  USING (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  )
+  WITH CHECK (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  );
+
+ALTER TABLE "ValidationRule" FORCE ROW LEVEL SECURITY;
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationBatch
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALTER TABLE "MigrationBatch" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "MigrationBatch_tenant_isolation" ON "MigrationBatch"
+  USING (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  )
+  WITH CHECK (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  );
+
+ALTER TABLE "MigrationBatch" FORCE ROW LEVEL SECURITY;
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationItem (uses batchId → MigrationBatch.tenantId for isolation)
+-- Note: No tenantId directly, isolation via cascade from MigrationBatch
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationItem does not have tenantId directly.
+-- Isolation is enforced via the parent MigrationBatch which has RLS.
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationError (uses batchId → MigrationBatch.tenantId for isolation)
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationError does not have tenantId directly.
+-- Isolation is enforced via the parent MigrationBatch which has RLS.
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationEntitySummary (uses batchId → MigrationBatch.tenantId)
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationEntitySummary does not have tenantId directly.
+-- Isolation is enforced via the parent MigrationBatch which has RLS.
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- MigrationMapping
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ALTER TABLE "MigrationMapping" ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "MigrationMapping_tenant_isolation" ON "MigrationMapping"
+  USING (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  )
+  WITH CHECK (
+    current_setting('app.current_tenant', true) IS NULL
+    OR current_setting('app.current_tenant', true) = ''
+    OR "tenantId" = current_setting('app.current_tenant', true)
+  );
+
+ALTER TABLE "MigrationMapping" FORCE ROW LEVEL SECURITY;
+
 -- =============================================================================
 -- USAGE NOTES
 -- =============================================================================
@@ -550,7 +645,8 @@ ALTER TABLE "AuditLog" FORCE ROW LEVEL SECURITY;
 --         'ImportBatch','TaxInvoiceLine','BankStatementLine','CardTransaction',
 --         'PurchaseInvoice','PurchaseInvoiceItem','StagingEntry','OfficialEntry',
 --         'Settlement','Reconciliation','RecurringRule','BudgetLine',
---         'ClosingChecklist','StockMovement','AuditLog'
+--         'ClosingChecklist','StockMovement','AuditLog',
+        'InternalTransfer','ValidationRule'
 --       ])
 --     LOOP
 --       EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_tenant_isolation', t);

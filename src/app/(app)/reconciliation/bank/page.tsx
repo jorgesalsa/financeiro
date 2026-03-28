@@ -7,7 +7,7 @@ import { BankReconciliationClient } from "./client";
 export default async function BankReconciliationPage() {
   const user = await getCurrentUser();
 
-  const [bankAccounts, unreconciledLines, unreconciledEntries] =
+  const [bankAccounts, unreconciledLines, unreconciledEntries, reviewQueue] =
     await Promise.all([
       listBankAccounts(),
       prisma.bankStatementLine.findMany({
@@ -34,6 +34,23 @@ export default async function BankReconciliationPage() {
         },
         take: 200,
       }),
+      prisma.reconciliation.findMany({
+        where: {
+          tenantId: user.tenantId,
+          requiresHumanReview: true,
+          approvedById: null,
+        },
+        orderBy: { reconciledAt: "desc" },
+        include: {
+          bankStatementLine: {
+            select: { description: true, amount: true, transactionDate: true },
+          },
+          officialEntry: {
+            select: { description: true, amount: true, date: true },
+          },
+        },
+        take: 50,
+      }),
     ]);
 
   // Reconciliation stats
@@ -52,6 +69,7 @@ export default async function BankReconciliationPage() {
     reconciled: reconciledLines,
     pending: totalLines - reconciledLines,
     percentage: totalLines > 0 ? Math.round((reconciledLines / totalLines) * 100) : 0,
+    pendingReview: reviewQueue.length,
   };
 
   return (
@@ -64,6 +82,7 @@ export default async function BankReconciliationPage() {
         bankAccounts={bankAccounts as any[]}
         unreconciledLines={unreconciledLines as any[]}
         unreconciledEntries={unreconciledEntries as any[]}
+        reviewQueue={JSON.parse(JSON.stringify(reviewQueue))}
         stats={stats}
       />
     </div>

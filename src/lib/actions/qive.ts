@@ -13,7 +13,7 @@ export async function testAndSaveQiveCredentials(
   apiId: string,
   apiKey: string
 ) {
-  const user = await requireRole("CONTROLLER");
+  const user = await requireRole(["CONTROLLER"]);
 
   if (!apiId || !apiKey) {
     throw new Error("API ID e API Key são obrigatórios");
@@ -73,7 +73,7 @@ export async function testAndSaveQiveCredentials(
 // ─── Sync QIVE NFes ─────────────────────────────────────────────────────────
 
 export async function syncQiveNFes(connectionId: string) {
-  const user = await requireRole("CONTROLLER");
+  const user = await requireRole(["CONTROLLER"]);
 
   const connection = await prisma.qiveConnection.findFirst({
     where: {
@@ -135,7 +135,7 @@ export async function listQiveConnections() {
 // ─── Delete QIVE Connection ─────────────────────────────────────────────────
 
 export async function deleteQiveConnection(connectionId: string) {
-  const user = await requireRole("ADMIN");
+  const user = await requireRole(["ADMIN"]);
 
   const connection = await prisma.qiveConnection.findFirst({
     where: {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-utils";
-import { autoReconcile, manualReconcile } from "@/lib/services/reconciliation";
+import { autoReconcile, manualReconcile, approveReconciliation } from "@/lib/services/reconciliation";
 
 export async function runAutoReconciliation(bankAccountId: string) {
   const user = await getCurrentUser();
@@ -34,6 +34,32 @@ export async function undoReconciliation(reconciliationId: string) {
   });
 
   revalidatePath("/reconciliation/bank");
+}
+
+// RA04: Approve reconciliation that requires human review
+export async function approveReconciliationAction(reconciliationId: string) {
+  const user = await getCurrentUser();
+  await approveReconciliation(reconciliationId, user.tenantId, user.id, user.email);
+  revalidatePath("/reconciliation/bank");
+}
+
+// RA04: List reconciliations requiring review
+export async function listReviewQueue(bankAccountId?: string) {
+  const user = await getCurrentUser();
+  return prisma.reconciliation.findMany({
+    where: {
+      tenantId: user.tenantId,
+      requiresHumanReview: true,
+      ...(bankAccountId ? { bankStatementLine: { bankAccountId } } : {}),
+    },
+    include: {
+      bankStatementLine: { select: { transactionDate: true, description: true, amount: true } },
+      officialEntry: { select: { description: true, amount: true, date: true } },
+      settlement: { select: { amount: true, date: true } },
+    },
+    orderBy: { reconciledAt: "desc" },
+    take: 100,
+  });
 }
 
 export async function getReconciliationStatus(bankAccountId: string) {

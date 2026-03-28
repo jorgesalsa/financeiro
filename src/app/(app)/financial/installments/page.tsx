@@ -9,6 +9,7 @@ import {
   ENTRY_STATUS_COLORS,
 } from "@/lib/constants/statuses";
 import type { EntryStatus } from "@/generated/prisma";
+import { Pencil } from "lucide-react";
 
 export default async function InstallmentsPage() {
   const user = await getCurrentUser();
@@ -22,6 +23,7 @@ export default async function InstallmentsPage() {
     include: {
       supplier: { select: { name: true } },
       customer: { select: { name: true } },
+      editedBy: { select: { name: true } },
     },
     take: 500,
   });
@@ -81,6 +83,7 @@ export default async function InstallmentsPage() {
                       <th className="px-3 py-2 text-right font-medium">Valor</th>
                       <th className="px-3 py-2 text-right font-medium">Pago</th>
                       <th className="px-3 py-2 text-left font-medium">Status</th>
+                      <th className="px-3 py-2 text-left font-medium">Editado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -106,6 +109,16 @@ export default async function InstallmentsPage() {
                           >
                             {ENTRY_STATUS_LABELS[item.status as EntryStatus]}
                           </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {item.manuallyEdited ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-600" title={item.editReason ?? undefined}>
+                              <Pencil className="h-3 w-3" />
+                              {(item as any).editedBy?.name ?? "Sim"}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

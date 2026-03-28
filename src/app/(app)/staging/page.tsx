@@ -27,7 +27,10 @@ export default async function StagingPage() {
   const counts: Record<string, number> = {
     ALL: entries.length,
     PENDING: 0,
+    PARSED: 0,
+    NORMALIZED: 0,
     AUTO_CLASSIFIED: 0,
+    CONFLICT: 0,
     VALIDATED: 0,
     INCORPORATED: 0,
     REJECTED: 0,

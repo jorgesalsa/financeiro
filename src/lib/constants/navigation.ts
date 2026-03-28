@@ -12,6 +12,7 @@ import {
   Receipt,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowRightLeft,
   Repeat,
   Calendar,
   Scale,
@@ -27,6 +28,7 @@ import {
   Plug,
   Layers,
   UserCog,
+  SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 
@@ -75,6 +77,14 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
+    label: "Migracao",
+    items: [
+      { title: "Visao Geral", href: "/migration", icon: Layers },
+      { title: "Nova Migracao", href: "/migration/new", icon: Upload },
+      { title: "Historico", href: "/migration/history", icon: Clock },
+    ],
+  },
+  {
     label: "Staging",
     items: [
       { title: "Lançamentos", href: "/staging", icon: FileCheck },
@@ -88,6 +98,7 @@ export const navigation: NavGroup[] = [
       { title: "Contas a Receber", href: "/financial/receivables", icon: ArrowUpCircle },
       { title: "Recorrências", href: "/financial/recurring", icon: Repeat },
       { title: "Notas Fiscais", href: "/financial/tax-invoices", icon: FileText },
+      { title: "Transferencias Internas", href: "/financial/transfers", icon: ArrowRightLeft },
       { title: "Parcelas", href: "/financial/installments", icon: DollarSign },
       { title: "Agenda Financeira", href: "/financial/calendar", icon: Calendar },
     ],
@@ -131,6 +142,7 @@ export const navigation: NavGroup[] = [
     label: "Configurações",
     items: [
       { title: "Geral", href: "/settings/general", icon: Settings },
+      { title: "Regras de Classificacao", href: "/settings/classification-rules", icon: SlidersHorizontal },
       { title: "Empresas", href: "/settings/companies", icon: Building2 },
       { title: "Usuários", href: "/settings/users", icon: UserCog },
     ],

@@ -86,10 +86,13 @@ enum StagingSource {
 
 enum StagingStatus {
   PENDING
+  PARSED
+  NORMALIZED
   AUTO_CLASSIFIED
+  CONFLICT
   VALIDATED
-  INCORPORATED
   REJECTED
+  INCORPORATED
 }
 
 enum EntryStatus {
@@ -165,6 +168,120 @@ enum PluggyConnectionStatus {
   ERROR
 }
 
+// ─── RA03: Rule Engine Enums ────────────────────────────────────────────────
+
+enum RuleConditionType {
+  AND
+  OR
+}
+
+enum RuleActionType {
+  CLASSIFY
+  BLOCK
+  ALERT
+  QUEUE
+}
+
+// ─── RA04: Match Basis ──────────────────────────────────────────────────────
+
+enum MatchBasis {
+  AMOUNT_DATE
+  AMOUNT_DESCRIPTION
+  AMOUNT_CNPJ
+  AMOUNT_ONLY
+  DESCRIPTION_ONLY
+  MANUAL
+}
+
+// ─── RA05: 4-Layer Taxonomy ─────────────────────────────────────────────────
+
+enum MovementType {
+  ENTRY
+  EXIT
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum FinancialNature {
+  OPERATIONAL
+  NON_OPERATIONAL
+  FINANCIAL
+  PATRIMONIAL
+}
+
+enum ClassificationStatus {
+  CLASSIFIED
+  PENDING_CLASSIFICATION
+  DOUBT
+  CONFLICT
+}
+
+// ─── Migration Enums ─────────────────────────────────────────────────────────
+
+enum MigrationBatchType {
+  FULL_INITIAL_LOAD
+  MODULE_IMPORT
+  MASS_UPDATE
+  REIMPORT
+  EXPORT
+}
+
+enum MigrationBatchStatus {
+  DRAFT
+  UPLOADED
+  MAPPED
+  VALIDATING
+  VALIDATED
+  REVIEWING
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSING
+  COMPLETED
+  COMPLETED_PARTIAL
+  FAILED
+  ROLLED_BACK
+  CANCELLED
+}
+
+enum MigrationEntityType {
+  CHART_OF_ACCOUNTS
+  COST_CENTERS
+  SUPPLIERS
+  CUSTOMERS
+  BANK_ACCOUNTS
+  PAYMENT_METHODS
+  CLASSIFICATION_RULES
+  VALIDATION_RULES
+  STAGING_ENTRIES
+  OFFICIAL_ENTRIES
+  SETTLEMENTS
+  RECONCILIATIONS
+  INSTALLMENTS
+  RECURRING_RULES
+  INTERNAL_TRANSFERS
+  OPENING_BALANCES
+  PRODUCTS
+  WAREHOUSES
+}
+
+enum MigrationItemStatus {
+  PENDING
+  VALID
+  WARNING
+  ERROR
+  SKIPPED
+  DUPLICATE
+  IMPORTED
+  FAILED
+  ROLLED_BACK
+}
+
+enum MigrationSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model Tenant {
@@ -205,6 +322,10 @@ model Tenant {
   auditLogs          AuditLog[]
   pluggyConnections  PluggyConnection[]
   qiveConnections    QiveConnection[]
+  internalTransfers  InternalTransfer[]
+  validationRules    ValidationRule[]
+  migrationBatches   MigrationBatch[]
+  migrationMappings  MigrationMapping[]
 }
 
 model User {
@@ -227,15 +348,22 @@ model User {
   validatedStagingEntries   StagingEntry[]        @relation("ValidatedBy")
   createdStagingEntries     StagingEntry[]        @relation("CreatedBy")
   incorporatedOfficialEntries OfficialEntry[]     @relation("IncorporatedBy")
+  editedOfficialEntries     OfficialEntry[]       @relation("EntryEditedBy")
   settledSettlements        Settlement[]          @relation("SettledBy")
   reconciledReconciliations Reconciliation[]      @relation("ReconciledBy")
+  approvedReconciliations   Reconciliation[]      @relation("ReconciliationApprovedBy")
   createdRecurringRules     RecurringRule[]        @relation("RecurringRuleCreatedBy")
   completedChecklists       ClosingChecklist[]    @relation("ChecklistCompletedBy")
   createdStockMovements     StockMovement[]       @relation("StockMovementCreatedBy")
   createdPluggyConnections  PluggyConnection[]    @relation("PluggyConnectionCreatedBy")
   createdQiveConnections    QiveConnection[]      @relation("QiveConnectionCreatedBy")
   createdInvites            TenantInvite[]        @relation("InviteCreatedBy")
+  createdTransfers          InternalTransfer[]    @relation("TransferCreatedBy")
   notifications             Notification[]        @relation("NotificationUser")
+  migrationBatchesCreated   MigrationBatch[]      @relation("MigrationCreatedBy")
+  migrationBatchesApproved  MigrationBatch[]      @relation("MigrationApprovedBy")
+  migrationBatchesRolledBack MigrationBatch[]     @relation("MigrationRolledBackBy")
+  migrationMappingsCreated  MigrationMapping[]    @relation("MappingCreatedBy")
 }
 
 model Membership {
@@ -427,6 +555,8 @@ model BankAccount {
   settlements        Settlement[]
   recurringRules     RecurringRule[]
   pluggyConnections  PluggyConnection[]
+  transfersOut       InternalTransfer[]  @relation("TransfersOut")
+  transfersIn        InternalTransfer[]  @relation("TransfersIn")
 
   @@unique([tenantId, bankCode, agency, accountNumber])
   @@index([tenantId])
@@ -503,6 +633,15 @@ model ClassificationRule {
   costCenterId     String?
   supplierId       String?
   customerId       String?
+  // RA03: Expanded rule engine
+  conditionType    RuleConditionType   @default(AND)
+  actionType       RuleActionType      @default(CLASSIFY)
+  confidence       Int                 @default(100)
+  description      String?
+  minAmount        Decimal?
+  maxAmount        Decimal?
+  supplierPattern  String?
+  datePattern      String?
   active           Boolean             @default(true)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
@@ -542,6 +681,14 @@ model ImportBatch {
   totalRecords     Int          @default(0)
   processedRecords Int          @default(0)
   errorRecords     Int          @default(0)
+  // RA09: Import metadata
+  fileHash         String?
+  fileSize         Int?
+  totalAmount      Decimal?
+  parseErrors      Json?
+  parserVersion    String?
+  sourceType       String?
+  sourceName       String?
   importedById     String
   createdAt        DateTime     @default(now())
   completedAt      DateTime?
@@ -599,6 +746,7 @@ model BankStatementLine {
   importBatchId   String
   bankAccountId   String
   transactionDate DateTime
+  bankPostedDate  DateTime?       // RA01: Date bank actually posted (may differ from transactionDate)
   description     String
   document        String?
   amount          Decimal
@@ -716,6 +864,21 @@ model StagingEntry {
   validatedById      String?
   validatedAt        DateTime?
   rejectionReason    String?
+  // RA01: Import tracking
+  importedAt         DateTime?
+  // RA05: 4-layer taxonomy
+  movementType         MovementType?
+  financialNature      FinancialNature?
+  classificationStatus ClassificationStatus? @default(PENDING_CLASSIFICATION)
+  // Migration: missing fields for complete staging
+  dueDate            DateTime?
+  competenceDate     DateTime?
+  originalDueDate    DateTime?
+  category           EntryCategory?
+  documentNumber     String?
+  externalId         String?
+  migrationBatchId   String?
+  migrationItemId    String?
   createdById        String
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
@@ -730,6 +893,7 @@ model StagingEntry {
   paymentMethod  PaymentMethod?  @relation(fields: [paymentMethodId], references: [id])
   validatedBy    User?           @relation("ValidatedBy", fields: [validatedById], references: [id])
   createdBy      User            @relation("CreatedBy", fields: [createdById], references: [id])
+  migrationBatch MigrationBatch? @relation(fields: [migrationBatchId], references: [id])
 
   officialEntry OfficialEntry?
 
@@ -737,6 +901,8 @@ model StagingEntry {
   @@index([tenantId, status])
   @@index([importBatchId])
   @@index([tenantId, date])
+  @@index([tenantId, externalId])
+  @@index([migrationBatchId])
 }
 
 model OfficialEntry {
@@ -770,6 +936,20 @@ model OfficialEntry {
   recurringRuleId    String?
   stagingEntryId     String?         @unique
   notes              String?
+  // RA05: 4-layer taxonomy
+  movementType         MovementType?
+  financialNature      FinancialNature?
+  classificationStatus ClassificationStatus? @default(PENDING_CLASSIFICATION)
+  // RA07: Immutability + optimistic locking
+  version              Int                   @default(1)
+  // RA08: Installment versioning
+  generationRuleSnapshot Json?
+  manuallyEdited         Boolean              @default(false)
+  editedById             String?
+  editReason             String?
+  // Migration: external tracking
+  externalId           String?
+  migrationBatchId     String?
   incorporatedById   String
   incorporatedAt     DateTime
   createdAt          DateTime        @default(now())
@@ -785,9 +965,13 @@ model OfficialEntry {
   recurringRule  RecurringRule?  @relation(fields: [recurringRuleId], references: [id])
   stagingEntry   StagingEntry?   @relation(fields: [stagingEntryId], references: [id])
   incorporatedBy User            @relation("IncorporatedBy", fields: [incorporatedById], references: [id])
+  editedBy       User?           @relation("EntryEditedBy", fields: [editedById], references: [id])
+  migrationBatch MigrationBatch? @relation(fields: [migrationBatchId], references: [id])
 
   settlements     Settlement[]
   reconciliations Reconciliation[]
+  transferAsDebit  InternalTransfer? @relation("TransferDebitEntry")
+  transferAsCredit InternalTransfer? @relation("TransferCreditEntry")
 
   @@unique([tenantId, sequentialNumber])
   @@index([tenantId])
@@ -802,6 +986,8 @@ model OfficialEntry {
   @@index([customerId])
   @@index([recurringRuleId])
   @@index([installmentGroupId])
+  @@index([tenantId, externalId])
+  @@index([migrationBatchId])
 }
 
 model Settlement {
@@ -817,6 +1003,8 @@ model Settlement {
   paymentMethodId String?
   document        String?
   notes           String?
+  // RA01: Settlement date (may differ from accounting date)
+  settlementDate  DateTime?
   settledById     String
   createdAt       DateTime @default(now())
 
@@ -840,6 +1028,14 @@ model Reconciliation {
   officialEntryId     String?
   settlementId        String?   @unique
   matchType           MatchType
+  // RA04: Reconciliation confidence scoring
+  matchConfidence     Int?
+  matchRuleId         String?
+  matchBasis          MatchBasis?
+  requiresHumanReview Boolean          @default(false)
+  reviewReason        String?
+  approvedById        String?
+  approvedAt          DateTime?
   reconciledById      String
   reconciledAt        DateTime
   notes               String?
@@ -850,6 +1046,7 @@ model Reconciliation {
   officialEntry     OfficialEntry?     @relation(fields: [officialEntryId], references: [id])
   settlement        Settlement?        @relation(fields: [settlementId], references: [id])
   reconciledBy      User               @relation("ReconciledBy", fields: [reconciledById], references: [id])
+  approvedBy        User?              @relation("ReconciliationApprovedBy", fields: [approvedById], references: [id])
 
   @@index([tenantId])
   @@index([officialEntryId])
@@ -1030,6 +1227,54 @@ model QiveConnection {
   @@index([tenantId])
 }
 
+// ─── RA06: Internal Transfers ────────────────────────────────────────────────
+
+model InternalTransfer {
+  id              String      @id @default(cuid())
+  tenantId        String
+  sourceAccountId String
+  targetAccountId String
+  amount          Decimal
+  transferDate    DateTime
+  reference       String?
+  debitEntryId    String      @unique
+  creditEntryId   String      @unique
+  createdById     String
+  createdAt       DateTime    @default(now())
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceAccount BankAccount   @relation("TransfersOut", fields: [sourceAccountId], references: [id])
+  targetAccount BankAccount   @relation("TransfersIn", fields: [targetAccountId], references: [id])
+  debitEntry    OfficialEntry @relation("TransferDebitEntry", fields: [debitEntryId], references: [id])
+  creditEntry   OfficialEntry @relation("TransferCreditEntry", fields: [creditEntryId], references: [id])
+  createdBy     User          @relation("TransferCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, transferDate])
+  @@index([sourceAccountId])
+  @@index([targetAccountId])
+}
+
+// ─── RA03: Validation Rules ─────────────────────────────────────────────────
+
+model ValidationRule {
+  id          String         @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  ruleType    String
+  config      Json
+  actionType  RuleActionType @default(ALERT)
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, active])
+}
+
 // ─── Multi-Tenant Management ─────────────────────────────────────────────────
 
 enum InviteStatus {
@@ -1086,4 +1331,170 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+// ─── Migration Module ──────────────────────────────────────────────────────
+
+model MigrationBatch {
+  id                   String               @id @default(cuid())
+  tenantId             String
+  type                 MigrationBatchType
+  status               MigrationBatchStatus @default(DRAFT)
+  name                 String
+  description          String?
+
+  // File info
+  fileName             String?
+  fileHash             String?
+  fileSize             Int?
+  templateVersion      String?
+
+  // ERP source (for migrations)
+  sourceErpName        String?
+  sourceErpPresetId    String?
+
+  // Counters
+  totalRows            Int                  @default(0)
+  validRows            Int                  @default(0)
+  warningRows          Int                  @default(0)
+  errorRows            Int                  @default(0)
+  skippedRows          Int                  @default(0)
+  importedRows         Int                  @default(0)
+
+  // Financial totals for verification
+  expectedTotalAmount  Decimal?
+  calculatedTotalAmount Decimal?
+
+  // Config & reports
+  mappingConfig        Json?
+  validationReport     Json?
+  approvalChecklist    Json?
+
+  // Rollback
+  rollbackData         Json?
+  rollbackAt           DateTime?
+  rollbackById         String?
+
+  // Timestamps & users
+  createdById          String
+  approvedById         String?
+  approvedAt           DateTime?
+  processedAt          DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  // Relations
+  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy            User                 @relation("MigrationCreatedBy", fields: [createdById], references: [id])
+  approvedBy           User?                @relation("MigrationApprovedBy", fields: [approvedById], references: [id])
+  rollbackBy           User?                @relation("MigrationRolledBackBy", fields: [rollbackById], references: [id])
+
+  items                MigrationItem[]
+  errors               MigrationError[]
+  entitySummaries      MigrationEntitySummary[]
+  stagingEntries       StagingEntry[]
+  officialEntries      OfficialEntry[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, type])
+}
+
+model MigrationItem {
+  id                   String               @id @default(cuid())
+  batchId              String
+  entityType           MigrationEntityType
+  status               MigrationItemStatus  @default(PENDING)
+  rowNumber            Int
+  sheetName            String?
+
+  // Data stages
+  rawData              Json
+  mappedData           Json?
+  correctedData        Json?
+
+  // Result
+  resultId             String?
+  resultType           String?
+
+  // Deduplication
+  deduplicationKey     String?
+  existingRecordId     String?
+
+  // External tracking
+  externalId           String?
+
+  // Score
+  confidenceScore      Int?
+
+  // Timestamps
+  validatedAt          DateTime?
+  importedAt           DateTime?
+  createdAt            DateTime             @default(now())
+
+  // Relations
+  batch                MigrationBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  errors               MigrationError[]
+
+  @@index([batchId, entityType])
+  @@index([batchId, status])
+  @@index([deduplicationKey])
+}
+
+model MigrationError {
+  id                   String               @id @default(cuid())
+  batchId              String
+  itemId               String?
+  severity             MigrationSeverity
+  field                String?
+  code                 String
+  message              String
+  suggestion           String?
+  resolved             Boolean              @default(false)
+  resolvedAt           DateTime?
+
+  // Relations
+  batch                MigrationBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  item                 MigrationItem?       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, severity])
+  @@index([itemId])
+}
+
+model MigrationEntitySummary {
+  id                   String               @id @default(cuid())
+  batchId              String
+  entityType           MigrationEntityType
+  totalRows            Int                  @default(0)
+  validRows            Int                  @default(0)
+  errorRows            Int                  @default(0)
+  warningRows          Int                  @default(0)
+  skippedRows          Int                  @default(0)
+  importedRows         Int                  @default(0)
+  financialTotal       Decimal?
+
+  batch                MigrationBatch       @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, entityType])
+}
+
+model MigrationMapping {
+  id                   String               @id @default(cuid())
+  tenantId             String
+  name                 String
+  sourceErpName        String?
+  entityType           MigrationEntityType
+  columnMapping        Json
+  transformations      Json?
+  isDefault            Boolean              @default(false)
+  createdById          String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  tenant               Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy            User                 @relation("MappingCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([tenantId, name, entityType])
+  @@index([tenantId])
 }

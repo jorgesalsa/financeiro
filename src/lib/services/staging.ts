@@ -1,5 +1,58 @@
 import prisma from "@/lib/db";
 import { createAuditLog } from "@/lib/utils/audit";
+import type { StagingStatus } from "@/generated/prisma";
+
+// RA02: State Machine — Valid Transitions
+const VALID_TRANSITIONS: Record<StagingStatus, StagingStatus[]> = {
+  PENDING: ["PARSED", "REJECTED"],
+  PARSED: ["NORMALIZED", "REJECTED"],
+  NORMALIZED: ["AUTO_CLASSIFIED", "CONFLICT", "VALIDATED", "REJECTED"],
+  AUTO_CLASSIFIED: ["VALIDATED", "CONFLICT", "REJECTED"],
+  CONFLICT: ["AUTO_CLASSIFIED", "VALIDATED", "REJECTED"],
+  VALIDATED: ["INCORPORATED", "REJECTED"],
+  REJECTED: ["PENDING"],
+  INCORPORATED: [],
+};
+
+export function assertValidTransition(from: StagingStatus, to: StagingStatus): void {
+  const allowed = VALID_TRANSITIONS[from];
+  if (!allowed || !allowed.includes(to)) {
+    throw new Error(
+      `Transição inválida: ${from} → ${to}. Transições permitidas: ${(allowed ?? []).join(", ") || "nenhuma"}`
+    );
+  }
+}
+
+async function transitionStatus(
+  entryId: string,
+  tenantId: string,
+  newStatus: StagingStatus,
+  userId: string,
+  userEmail: string,
+  extraData?: Record<string, unknown>
+) {
+  const entry = await prisma.stagingEntry.findFirstOrThrow({
+    where: { id: entryId, tenantId },
+  });
+
+  assertValidTransition(entry.status, newStatus);
+
+  await prisma.stagingEntry.update({
+    where: { id: entryId },
+    data: { status: newStatus, ...extraData },
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "StagingEntry",
+    recordId: entryId,
+    action: "UPDATE",
+    oldValues: { status: entry.status },
+    newValues: { status: newStatus, ...extraData },
+    userId,
+    userEmail,
+  });
+}
 
 export async function validateStagingEntry(
   entryId: string,
@@ -49,20 +102,10 @@ export async function validateStagingEntry(
     return { valid: false, errors };
   }
 
-  await prisma.stagingEntry.update({
-    where: { id: entryId },
-    data: { status: "VALIDATED", validatedById: userId, validatedAt: new Date() },
-  });
-
-  await createAuditLog({
-    tenantId,
-    tableName: "StagingEntry",
-    recordId: entryId,
-    action: "UPDATE",
-    oldValues: { status: entry.status },
-    newValues: { status: "VALIDATED" },
-    userId,
-    userEmail,
+  // RA02: Use state machine transition
+  await transitionStatus(entryId, tenantId, "VALIDATED", userId, userEmail, {
+    validatedById: userId,
+    validatedAt: new Date(),
   });
 
   return { valid: true, errors: [] };
@@ -114,9 +157,14 @@ export async function incorporateStagingEntries(
           stagingEntryId: entry.id,
           incorporatedById: userId,
           incorporatedAt: new Date(),
+          // RA05: Copy taxonomy from staging
+          movementType: entry.movementType,
+          financialNature: entry.financialNature,
+          classificationStatus: entry.classificationStatus ?? "PENDING_CLASSIFICATION",
         },
       });
 
+      // RA02: State machine transition
       await tx.stagingEntry.update({
         where: { id: entry.id },
         data: { status: "INCORPORATED" },

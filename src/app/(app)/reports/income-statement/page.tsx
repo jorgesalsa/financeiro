@@ -15,12 +15,13 @@ export default async function IncomeStatementPage() {
 
   const currentYear = new Date().getFullYear();
 
-  // Get all settled entries for the current year, grouped by chart of account
+  // RA01: Use competenceDate for DRE (not date); exclude TRANSFER category
   const entries = await prisma.officialEntry.findMany({
     where: {
       tenantId: user.tenantId,
       status: "SETTLED",
-      date: {
+      category: { not: "TRANSFER" }, // RA06: Exclude internal transfers from DRE
+      competenceDate: {
         gte: new Date(`${currentYear}-01-01`),
         lte: new Date(`${currentYear}-12-31`),
       },
@@ -65,7 +66,8 @@ export default async function IncomeStatementPage() {
     }
 
     const row = accountMap.get(id)!;
-    const month = new Date(entry.date).getMonth();
+    // RA01: Use competenceDate for monthly distribution
+    const month = new Date(entry.competenceDate).getMonth();
     row.monthly[month] += Number(entry.amount);
     row.ytd += Number(entry.amount);
   }

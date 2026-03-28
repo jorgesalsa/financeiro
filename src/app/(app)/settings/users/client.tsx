@@ -97,7 +97,7 @@ export function UsersClient({
   async function handleRoleChange(membershipId: string, newRole: string) {
     startTransition(async () => {
       try {
-        await updateMemberRole(membershipId, newRole);
+        await updateMemberRole(membershipId, newRole as any);
         showFeedback("success", "Permissao atualizada com sucesso!");
         router.refresh();
       } catch (err: any) {
@@ -123,12 +123,9 @@ export function UsersClient({
     e.preventDefault();
     startTransition(async () => {
       try {
-        const result = await inviteUserToTenant({
-          email: inviteEmail,
-          role: inviteRole,
-        });
+        const result = await inviteUserToTenant(inviteEmail, inviteRole as any);
         const message =
-          result?.addedDirectly
+          (result as any)?.type === "direct"
             ? "Usuario adicionado diretamente"
             : "Convite enviado";
         showFeedback("success", message);

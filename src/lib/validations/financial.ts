@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const officialEntrySchema = z.object({
   date: z.coerce.date(),
-  competenceDate: z.coerce.date().optional(),
+  competenceDate: z.coerce.date(), // RA01: obrigatório
   description: z.string().min(1, "Descrição é obrigatória"),
   amount: z.coerce.number().positive("Valor deve ser positivo"),
   type: z.enum(["CREDIT", "DEBIT"]),
@@ -16,11 +16,16 @@ export const officialEntrySchema = z.object({
   documentNumber: z.string().nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
   notes: z.string().nullable().optional(),
+  // RA05: 4-layer taxonomy
+  movementType: z.enum(["ENTRY", "EXIT", "TRANSFER", "ADJUSTMENT"]).nullable().optional(),
+  financialNature: z.enum(["OPERATIONAL", "NON_OPERATIONAL", "FINANCIAL", "PATRIMONIAL"]).nullable().optional(),
 });
 
 export const settlementSchema = z.object({
   officialEntryId: z.string().min(1, "Lançamento é obrigatório"),
   date: z.coerce.date(),
+  // RA01: Settlement date (can differ from accounting date)
+  settlementDate: z.coerce.date().nullable().optional(),
   amount: z.coerce.number().positive("Valor deve ser positivo"),
   interestAmount: z.coerce.number().min(0).default(0),
   fineAmount: z.coerce.number().min(0).default(0),

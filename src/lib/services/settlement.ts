@@ -1,11 +1,12 @@
 import prisma from "@/lib/db";
 import { createAuditLog } from "@/lib/utils/audit";
-import type { Decimal } from "@/generated/prisma/internal/prismaNamespace";
 
 export async function settleEntry(params: {
   tenantId: string;
   officialEntryId: string;
   date: Date;
+  // RA01: Settlement date (may differ from accounting date)
+  settlementDate?: Date | null;
   amount: number;
   interestAmount?: number;
   fineAmount?: number;
@@ -36,6 +37,8 @@ export async function settleEntry(params: {
         tenantId: params.tenantId,
         officialEntryId: params.officialEntryId,
         date: params.date,
+        // RA01: Use settlementDate if provided, fallback to date
+        settlementDate: params.settlementDate ?? params.date,
         amount: params.amount,
         interestAmount: params.interestAmount ?? 0,
         fineAmount: params.fineAmount ?? 0,

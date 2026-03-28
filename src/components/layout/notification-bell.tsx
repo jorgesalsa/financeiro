@@ -98,7 +98,7 @@ export function NotificationBell({ initialCount }: NotificationBellProps) {
     if (!loaded) {
       try {
         const data = await listNotifications();
-        setNotifications(data);
+        setNotifications(data.map((n: any) => ({ ...n, createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : String(n.createdAt) })));
         setLoaded(true);
       } catch {
         // silently fail

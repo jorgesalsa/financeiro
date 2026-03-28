@@ -161,11 +161,13 @@ export function OnboardingClient({
       try {
         for (const account of bankAccounts) {
           await createBankAccount({
-            name: account.name,
+            bankName: account.name,
             bankCode: account.bankCode,
-            accountType: account.accountType,
+            accountType: account.accountType as "CHECKING" | "SAVINGS" | "INVESTMENT",
             agency: account.agency,
             accountNumber: account.accountNumber,
+            initialBalance: 0,
+            active: true,
           });
         }
         setCurrentStep(3);

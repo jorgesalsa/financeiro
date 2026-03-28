@@ -42,6 +42,7 @@ export async function listOfficialEntries(filters?: {
 export async function settleOfficialEntry(data: {
   officialEntryId: string;
   date: string;
+  settlementDate?: string; // RA01
   amount: number;
   interestAmount?: number;
   fineAmount?: number;
@@ -57,6 +58,8 @@ export async function settleOfficialEntry(data: {
     tenantId: user.tenantId,
     officialEntryId: data.officialEntryId,
     date: new Date(data.date),
+    // RA01: Pass settlement date
+    settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
     amount: data.amount,
     interestAmount: data.interestAmount,
     fineAmount: data.fineAmount,

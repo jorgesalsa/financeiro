@@ -65,7 +65,10 @@ type Lookups = {
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: "ALL", label: "Todos" },
   { key: "PENDING", label: "Pendentes" },
+  { key: "PARSED", label: "Parseados" },
+  { key: "NORMALIZED", label: "Normalizados" },
   { key: "AUTO_CLASSIFIED", label: "Auto-classificados" },
+  { key: "CONFLICT", label: "Conflitos" },
   { key: "VALIDATED", label: "Validados" },
   { key: "INCORPORATED", label: "Incorporados" },
   { key: "REJECTED", label: "Rejeitados" },
@@ -335,7 +338,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
       header: "Acoes",
       cell: ({ row }) => {
         const entry = row.original;
-        const canEdit = entry.status === "PENDING" || entry.status === "AUTO_CLASSIFIED";
+        const canEdit = ["PENDING", "PARSED", "NORMALIZED", "AUTO_CLASSIFIED", "CONFLICT"].includes(entry.status);
         return (
           <div className="flex gap-1">
             {canEdit && (

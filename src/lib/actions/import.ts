@@ -9,6 +9,15 @@ import { parseCSV } from "@/lib/utils/csv-parser";
 import { parseExcel } from "@/lib/utils/excel-parser";
 import { classifyStagingEntries } from "@/lib/services/classification";
 import { parseNFeXMLRaw } from "@/lib/qive";
+import crypto from "crypto";
+
+// RA09: Parser version tracking
+const PARSER_VERSION = "1.0.0";
+
+// RA09: Compute SHA-256 hash of file content
+function computeFileHash(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
 
 export async function importBankStatement(formData: FormData) {
   const user = await getCurrentUser();
@@ -20,7 +29,11 @@ export async function importBankStatement(formData: FormData) {
   const content = await file.text();
   const fileName = file.name.toLowerCase();
 
-  // Create import batch
+  // RA09: Compute metadata
+  const fileHash = computeFileHash(content);
+  const fileSize = file.size;
+
+  // Create import batch with RA09 metadata
   const batch = await prisma.importBatch.create({
     data: {
       tenantId: user.tenantId,
@@ -31,6 +44,11 @@ export async function importBankStatement(formData: FormData) {
       processedRecords: 0,
       errorRecords: 0,
       importedById: user.id,
+      fileHash,
+      fileSize,
+      parserVersion: PARSER_VERSION,
+      sourceType: "BANK_STATEMENT",
+      sourceName: file.name,
     },
   });
 
@@ -110,13 +128,14 @@ export async function importBankStatement(formData: FormData) {
           tenantId: user.tenantId,
           importBatchId: batch.id,
           source: "IMPORT_BANK_STATEMENT",
-          status: "PENDING",
+          status: "PARSED", // RA02+RA09: Start at PARSED after successful parse
           date: trx.date,
           description: trx.description,
           amount: trx.amount,
           type: trx.type,
           bankAccountId,
           createdById: user.id,
+          importedAt: new Date(), // RA01: Track import timestamp
         },
       });
 
@@ -126,13 +145,17 @@ export async function importBankStatement(formData: FormData) {
     // Auto-classify
     const classResult = await classifyStagingEntries(user.tenantId, stagingIds);
 
-    // Complete batch
+    // RA09: Compute totalAmount
+    const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
+
+    // Complete batch with RA09 metadata
     await prisma.importBatch.update({
       where: { id: batch.id },
       data: {
         status: "COMPLETED",
         processedRecords: transactions.length,
         completedAt: new Date(),
+        totalAmount,
       },
     });
 

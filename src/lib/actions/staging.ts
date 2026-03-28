@@ -48,8 +48,9 @@ export async function updateStagingEntry(id: string, data: StagingEntryInput) {
   const user = await getCurrentUser();
   const validated = stagingEntrySchema.parse(data);
 
+  // RA02: Allow editing in more states
   const existing = await prisma.stagingEntry.findFirstOrThrow({
-    where: { id, tenantId: user.tenantId, status: { in: ["PENDING", "AUTO_CLASSIFIED"] } },
+    where: { id, tenantId: user.tenantId, status: { in: ["PENDING", "PARSED", "NORMALIZED", "AUTO_CLASSIFIED", "CONFLICT"] } },
   });
 
   const entry = await prisma.stagingEntry.update({
