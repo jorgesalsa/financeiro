@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Upload,
+  Download,
   FileSpreadsheet,
   CheckCircle,
   AlertTriangle,
@@ -124,6 +125,63 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
         showFeedback("error", err.message || "Erro ao processar arquivo");
       }
     });
+  }
+
+  // Download template XLSX
+  async function handleDownloadTemplate() {
+    const XLSX = await import("xlsx");
+
+    const sheets: { name: string; headers: string[]; example: Record<string, string> }[] = [
+      {
+        name: "plano_de_contas",
+        headers: ["code", "name", "type", "parent_code", "description"],
+        example: { code: "1.1.01", name: "Caixa Geral", type: "ASSET", parent_code: "1.1", description: "Conta de caixa principal" },
+      },
+      {
+        name: "centros_de_custo",
+        headers: ["code", "name", "description", "active"],
+        example: { code: "CC001", name: "Administrativo", description: "Centro de custo administrativo", active: "true" },
+      },
+      {
+        name: "fornecedores",
+        headers: ["name", "cnpj_cpf", "email", "phone", "address", "city", "state", "zip_code"],
+        example: { name: "Fornecedor ABC Ltda", cnpj_cpf: "12.345.678/0001-90", email: "contato@abc.com", phone: "(11) 99999-0000", address: "Rua Exemplo, 100", city: "Sao Paulo", state: "SP", zip_code: "01000-000" },
+      },
+      {
+        name: "clientes",
+        headers: ["name", "cnpj_cpf", "email", "phone", "address", "city", "state", "zip_code"],
+        example: { name: "Cliente XYZ S.A.", cnpj_cpf: "98.765.432/0001-10", email: "financeiro@xyz.com", phone: "(21) 98888-0000", address: "Av. Brasil, 500", city: "Rio de Janeiro", state: "RJ", zip_code: "20000-000" },
+      },
+      {
+        name: "bancos_contas",
+        headers: ["bank_name", "bank_code", "agency", "account_number", "account_type", "initial_balance"],
+        example: { bank_name: "Banco do Brasil", bank_code: "001", agency: "1234-5", account_number: "12345-6", account_type: "CHECKING", initial_balance: "10000.00" },
+      },
+      {
+        name: "formas_pagamento",
+        headers: ["name", "type", "description"],
+        example: { name: "PIX", type: "PIX", description: "Pagamento via PIX" },
+      },
+      {
+        name: "lancamentos_staging",
+        headers: ["date", "description", "amount", "type", "category", "supplier_cnpj", "customer_cnpj", "bank_code", "agency", "account_number", "document_number", "notes"],
+        example: { date: "2025-01-15", description: "Pagamento fornecedor", amount: "1500.00", type: "DEBIT", category: "PAYABLE", supplier_cnpj: "12.345.678/0001-90", customer_cnpj: "", bank_code: "001", agency: "1234-5", account_number: "12345-6", document_number: "NF-001", notes: "" },
+      },
+    ];
+
+    const wb = XLSX.utils.book_new();
+
+    for (const sheet of sheets) {
+      const data = [sheet.headers, sheet.headers.map((h) => sheet.example[h] ?? "")];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      // Auto column widths
+      ws["!cols"] = sheet.headers.map((h) => ({
+        wch: Math.max(h.length, (sheet.example[h] ?? "").length, 12) + 2,
+      }));
+      XLSX.utils.book_append_sheet(wb, ws, sheet.name);
+    }
+
+    XLSX.writeFile(wb, "modelo_migracao.xlsx");
   }
 
   return (
@@ -289,16 +347,47 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
                 />
               </div>
 
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-blue-900 flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Planilha Modelo
+                  </h4>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar Modelo (.xlsx)
+                  </Button>
+                </div>
+                <p className="text-sm text-blue-800 mb-2">
+                  Baixe o modelo, preencha com seus dados e faca o upload. A planilha contem:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "plano_de_contas",
+                    "centros_de_custo",
+                    "fornecedores",
+                    "clientes",
+                    "bancos_contas",
+                    "formas_pagamento",
+                    "lancamentos_staging",
+                  ].map((name) => (
+                    <Badge key={name} variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                      {name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
               <div className="bg-muted/50 rounded-lg p-4">
                 <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  Dicas para o arquivo
+                  Dicas
                 </h4>
                 <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Cada aba deve representar uma entidade (ex: plano_de_contas, fornecedores)</li>
-                  <li>A primeira linha deve conter os cabecalhos das colunas</li>
-                  <li>Nomes de aba aceitos: plano_de_contas, centros_de_custo, fornecedores, clientes, bancos_contas, formas_pagamento</li>
-                  <li>Use o template padrao para melhor compatibilidade</li>
+                  <li>Cada aba representa uma entidade - inclua apenas as que precisar</li>
+                  <li>A primeira linha deve conter os cabecalhos (ja preenchidos no modelo)</li>
+                  <li>A segunda linha do modelo tem um exemplo - apague antes de enviar</li>
+                  <li>Campos obrigatorios estao indicados nos cabecalhos de cada aba</li>
                 </ul>
               </div>
 
