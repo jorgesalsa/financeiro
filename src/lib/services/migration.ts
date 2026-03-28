@@ -93,6 +93,7 @@ const SHEET_NAME_TO_ENTITY: Record<string, MigrationEntityType> = {
   formas_pagamento: "PAYMENT_METHODS",
   regras_classificacao: "CLASSIFICATION_RULES",
   regras_validacao: "VALIDATION_RULES",
+  lancamentos: "STAGING_ENTRIES",
   lancamentos_staging: "STAGING_ENTRIES",
   lancamentos_oficiais: "OFFICIAL_ENTRIES",
   baixas_liquidacoes: "SETTLEMENTS",
@@ -895,7 +896,25 @@ function getRequiredFields(entityType: MigrationEntityType): string[] {
     case "PAYMENT_METHODS":
       return ["name", "type"];
     case "STAGING_ENTRIES":
-      return ["date", "description", "amount", "type"];
+      return [
+        "date",
+        "competence_date",
+        "due_date",
+        "description",
+        "amount",
+        "type",
+        "category",
+        "movement_type",
+        "financial_nature",
+        "chart_of_account_code",
+        "supplier_cnpj_cpf",
+        "customer_cnpj_cpf",
+        "bank_code",
+        "agency",
+        "account_number",
+        "payment_method",
+        "document_number",
+      ];
     case "OFFICIAL_ENTRIES":
       return ["date", "description", "amount", "type"];
     case "SETTLEMENTS":
