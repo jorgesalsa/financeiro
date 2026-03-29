@@ -67,7 +67,7 @@ async function main() {
   type AccountDef = {
     code: string;
     name: string;
-    type: "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
+    type: string;
     level: number;
     isAnalytic: boolean;
     children?: AccountDef[];
@@ -225,7 +225,7 @@ async function main() {
           tenantId: tenant.id,
           code: acct.code,
           name: acct.name,
-          type: acct.type,
+          type: acct.type as any,
           level: acct.level,
           isAnalytic: acct.isAnalytic,
           parentId,

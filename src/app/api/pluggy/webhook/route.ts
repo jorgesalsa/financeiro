@@ -4,6 +4,16 @@ import { syncTransactionsFromPluggy } from "@/lib/services/pluggy-sync";
 
 export async function POST(request: Request) {
   try {
+    // SECURITY: Validate webhook secret if configured
+    const webhookSecret = process.env.PLUGGY_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const authHeader = request.headers.get("x-pluggy-signature") || request.headers.get("authorization");
+      if (authHeader !== `Bearer ${webhookSecret}` && authHeader !== webhookSecret) {
+        console.warn("[Pluggy Webhook] Unauthorized: invalid signature");
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const body = await request.json();
 
     // Pluggy webhook payload: { event: string, data: { item: { id: string, ... } } }

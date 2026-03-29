@@ -6,6 +6,8 @@ import { getCurrentUser } from "@/lib/auth-utils";
 import { settleEntry } from "@/lib/services/settlement";
 import { generateInstallments } from "@/lib/services/installment";
 import { settlementSchema, installmentSchema } from "@/lib/validations/financial";
+import { createAuditLog } from "@/lib/utils/audit";
+import type { Prisma } from "@/generated/prisma";
 
 export async function listOfficialEntries(filters?: {
   category?: string;
@@ -15,13 +17,13 @@ export async function listOfficialEntries(filters?: {
 }) {
   const user = await getCurrentUser();
 
-  const where: any = { tenantId: user.tenantId };
-  if (filters?.category) where.category = filters.category;
-  if (filters?.status) where.status = filters.status;
+  const where: Prisma.OfficialEntryWhereInput = { tenantId: user.tenantId };
+  if (filters?.category) where.category = filters.category as any;
+  if (filters?.status) where.status = filters.status as any;
   if (filters?.startDate || filters?.endDate) {
     where.date = {};
-    if (filters.startDate) where.date.gte = new Date(filters.startDate);
-    if (filters.endDate) where.date.lte = new Date(filters.endDate);
+    if (filters?.startDate) where.date.gte = new Date(filters.startDate);
+    if (filters?.endDate) where.date.lte = new Date(filters.endDate);
   }
 
   return prisma.officialEntry.findMany({
@@ -39,35 +41,25 @@ export async function listOfficialEntries(filters?: {
   });
 }
 
-export async function settleOfficialEntry(data: {
-  officialEntryId: string;
-  date: string;
-  settlementDate?: string; // RA01
-  amount: number;
-  interestAmount?: number;
-  fineAmount?: number;
-  discountAmount?: number;
-  bankAccountId: string;
-  paymentMethodId?: string;
-  document?: string;
-  notes?: string;
-}) {
+export async function settleOfficialEntry(rawData: unknown) {
   const user = await getCurrentUser();
+
+  // SECURITY: Validate input with Zod before processing
+  const data = settlementSchema.parse(rawData);
 
   const result = await settleEntry({
     tenantId: user.tenantId,
     officialEntryId: data.officialEntryId,
-    date: new Date(data.date),
-    // RA01: Pass settlement date
-    settlementDate: data.settlementDate ? new Date(data.settlementDate) : null,
+    date: data.date,
+    settlementDate: data.settlementDate ?? null,
     amount: data.amount,
     interestAmount: data.interestAmount,
     fineAmount: data.fineAmount,
     discountAmount: data.discountAmount,
     bankAccountId: data.bankAccountId,
-    paymentMethodId: data.paymentMethodId || null,
-    document: data.document || null,
-    notes: data.notes || null,
+    paymentMethodId: data.paymentMethodId ?? null,
+    document: data.document ?? null,
+    notes: data.notes ?? null,
     userId: user.id,
     userEmail: user.email,
   });
@@ -78,19 +70,17 @@ export async function settleOfficialEntry(data: {
   return result;
 }
 
-export async function createInstallments(data: {
-  officialEntryId: string;
-  numberOfInstallments: number;
-  firstDueDate: string;
-  intervalDays: number;
-}) {
+export async function createInstallments(rawData: unknown) {
   const user = await getCurrentUser();
+
+  // SECURITY: Validate input with Zod before processing
+  const data = installmentSchema.parse(rawData);
 
   const result = await generateInstallments({
     tenantId: user.tenantId,
     officialEntryId: data.officialEntryId,
     numberOfInstallments: data.numberOfInstallments,
-    firstDueDate: new Date(data.firstDueDate),
+    firstDueDate: data.firstDueDate,
     intervalDays: data.intervalDays,
     userId: user.id,
     userEmail: user.email,
@@ -148,6 +138,18 @@ export async function cancelEntry(id: string) {
         discountAmount: 0,
       },
     });
+  });
+
+  // SECURITY: Audit log for cancellation
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "OfficialEntry",
+    recordId: id,
+    action: "UPDATE",
+    oldValues: { status: "OPEN/PARTIAL/SETTLED" },
+    newValues: { status: "CANCELLED", settlementsReversed: true },
+    userId: user.id,
+    userEmail: user.email,
   });
 
   revalidatePath("/financial/entries");

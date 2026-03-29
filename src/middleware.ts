@@ -1,8 +1,8 @@
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
 
   // Public routes - no auth check needed
   const publicPaths = ["/login", "/register", "/forgot-password", "/api/auth"];
@@ -10,19 +10,29 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session token (set by NextAuth)
-  const token =
-    request.cookies.get("authjs.session-token")?.value ||
-    request.cookies.get("__Secure-authjs.session-token")?.value;
+  // API routes with their own auth (cron, webhooks)
+  if (pathname.startsWith("/api/cron") || pathname.startsWith("/api/pluggy")) {
+    return NextResponse.next();
+  }
 
-  if (!token) {
-    const loginUrl = new URL("/login", request.url);
+  // If no valid session, redirect to login
+  if (!req.auth) {
+    const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
+  // Validate session has required tenant data
+  const user = req.auth.user as any;
+  if (!user?.tenantId) {
+    // User exists but has no tenant — redirect to onboarding
+    if (!pathname.startsWith("/settings/companies/onboarding")) {
+      return NextResponse.redirect(new URL("/settings/companies/onboarding", req.url));
+    }
+  }
+
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

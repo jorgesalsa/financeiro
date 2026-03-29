@@ -40,24 +40,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isPasswordValid) return null;
 
+        // Populate tenant data at login so JWT callback doesn't query DB every time
+        const defaultMembership = user.memberships[0];
+
         return {
           id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
           image: user.image,
-        };
+          // Custom fields passed to jwt callback via `user` param
+          tenantId: defaultMembership?.tenantId ?? null,
+          tenantSlug: defaultMembership?.tenant.slug ?? null,
+          memberRole: defaultMembership?.role ?? null,
+        } as any;
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
+      // On sign-in: store all data in token (no extra DB queries)
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.tenantId = (user as any).tenantId;
+        token.tenantSlug = (user as any).tenantSlug;
+        token.memberRole = (user as any).memberRole;
       }
 
-      if (token.id) {
+      // Only re-fetch tenant data on explicit update trigger (e.g. tenant switch)
+      if (trigger === "update" && token.id) {
         const membership = await prisma.membership.findFirst({
           where: { userId: token.id as string, isDefault: true },
           include: { tenant: true },

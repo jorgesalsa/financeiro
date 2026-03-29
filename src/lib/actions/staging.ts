@@ -30,14 +30,16 @@ export async function createStagingEntry(data: StagingEntryInput) {
   const user = await getCurrentUser();
   const validated = stagingEntrySchema.parse(data);
 
+  const { pendingSettlement, ...restFields } = validated;
   const entry = await prisma.stagingEntry.create({
     data: {
-      ...validated,
+      ...restFields,
+      ...(pendingSettlement != null ? { pendingSettlement } : {}),
       tenantId: user.tenantId,
       source: "MANUAL",
       status: "PENDING",
       createdById: user.id,
-    },
+    } as any,
   });
 
   revalidatePath("/staging");
@@ -53,9 +55,13 @@ export async function updateStagingEntry(id: string, data: StagingEntryInput) {
     where: { id, tenantId: user.tenantId, status: { in: ["PENDING", "PARSED", "NORMALIZED", "AUTO_CLASSIFIED", "CONFLICT"] } },
   });
 
+  const { pendingSettlement: ps, ...updateFields } = validated;
   const entry = await prisma.stagingEntry.update({
     where: { id },
-    data: validated,
+    data: {
+      ...updateFields,
+      ...(ps != null ? { pendingSettlement: ps } : {}),
+    } as any,
   });
 
   revalidatePath("/staging");

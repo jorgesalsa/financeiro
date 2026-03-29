@@ -1,11 +1,49 @@
 import prisma from "@/lib/db";
 import { createAuditLog } from "@/lib/utils/audit";
 
+/**
+ * Validates that a foreign-key resource belongs to the same tenant.
+ * Prevents cross-tenant data access.
+ */
+async function assertTenantOwnership(
+  tenantId: string,
+  checks: { bankAccountId?: string; paymentMethodId?: string | null }
+) {
+  if (checks.bankAccountId) {
+    const bank = await prisma.bankAccount.findFirst({
+      where: { id: checks.bankAccountId, tenantId },
+      select: { id: true },
+    });
+    if (!bank) throw new Error("Conta bancária não pertence a este tenant");
+  }
+  if (checks.paymentMethodId) {
+    const pm = await prisma.paymentMethod.findFirst({
+      where: { id: checks.paymentMethodId, tenantId },
+      select: { id: true },
+    });
+    if (!pm) throw new Error("Forma de pagamento não pertence a este tenant");
+  }
+}
+
+/**
+ * Checks if the period (year/month) is locked for this tenant.
+ * Prevents settlements in closed accounting periods.
+ */
+async function assertPeriodNotLocked(tenantId: string, date: Date) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const lock = await prisma.periodLock.findUnique({
+    where: { tenantId_year_month: { tenantId, year, month } },
+  });
+  if (lock) {
+    throw new Error(`Período ${month.toString().padStart(2, "0")}/${year} está fechado`);
+  }
+}
+
 export async function settleEntry(params: {
   tenantId: string;
   officialEntryId: string;
   date: Date;
-  // RA01: Settlement date (may differ from accounting date)
   settlementDate?: Date | null;
   amount: number;
   interestAmount?: number;
@@ -18,6 +56,16 @@ export async function settleEntry(params: {
   userId: string;
   userEmail: string;
 }) {
+  // SECURITY: Validate tenant ownership of bankAccount and paymentMethod
+  await assertTenantOwnership(params.tenantId, {
+    bankAccountId: params.bankAccountId,
+    paymentMethodId: params.paymentMethodId,
+  });
+
+  // SECURITY: Check period lock
+  const effectiveDate = params.settlementDate ?? params.date;
+  await assertPeriodNotLocked(params.tenantId, effectiveDate);
+
   const entry = await prisma.officialEntry.findFirstOrThrow({
     where: { id: params.officialEntryId, tenantId: params.tenantId, status: { in: ["OPEN", "PARTIAL"] } },
     include: { settlements: true },
@@ -37,7 +85,6 @@ export async function settleEntry(params: {
         tenantId: params.tenantId,
         officialEntryId: params.officialEntryId,
         date: params.date,
-        // RA01: Use settlementDate if provided, fallback to date
         settlementDate: params.settlementDate ?? params.date,
         amount: params.amount,
         interestAmount: params.interestAmount ?? 0,
@@ -66,7 +113,7 @@ export async function settleEntry(params: {
       },
     });
 
-    // Update bank balance
+    // Update bank balance — tenant-validated bankAccountId
     const balanceChange = entry.category === "PAYABLE"
       ? -paymentAmount
       : paymentAmount;

@@ -72,7 +72,7 @@ export default async function CashFlowPage() {
   // Group realized by settlement date (actual payment date)
   const realizedByDate = new Map<string, { inflow: number; outflow: number }>();
   for (const s of settlements) {
-    const dateKey = new Date(s.settlementDate).toISOString().split("T")[0];
+    const dateKey = new Date(s.settlementDate!).toISOString().split("T")[0];
     if (!realizedByDate.has(dateKey))
       realizedByDate.set(dateKey, { inflow: 0, outflow: 0 });
     const bucket = realizedByDate.get(dateKey)!;
