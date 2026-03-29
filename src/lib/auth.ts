@@ -3,13 +3,10 @@ import Credentials from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import prisma from "@/lib/db";
 import type { Role } from "@/generated/prisma";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // No PrismaAdapter needed — we only use Credentials + JWT
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  ...authConfig,
   providers: [
     Credentials({
       name: "credentials",
@@ -49,7 +46,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           role: user.role,
           image: user.image,
-          // Custom fields passed to jwt callback via `user` param
           tenantId: defaultMembership?.tenantId ?? null,
           tenantSlug: defaultMembership?.tenant.slug ?? null,
           memberRole: defaultMembership?.role ?? null,
@@ -58,6 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    ...authConfig.callbacks,
     async jwt({ token, user, trigger }) {
       // On sign-in: store all data in token (no extra DB queries)
       if (user) {
@@ -68,7 +65,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.memberRole = (user as any).memberRole;
       }
 
-      // Only re-fetch tenant data on explicit update trigger (e.g. tenant switch)
+      // Backfill for existing sessions that don't have tenant data yet
+      if (token.id && !token.tenantId) {
+        const membership = await prisma.membership.findFirst({
+          where: { userId: token.id as string, isDefault: true },
+          include: { tenant: true },
+        });
+        if (membership) {
+          token.tenantId = membership.tenantId;
+          token.tenantSlug = membership.tenant.slug;
+          token.memberRole = membership.role;
+        }
+      }
+
+      // Re-fetch tenant data on explicit update trigger (e.g. tenant switch)
       if (trigger === "update" && token.id) {
         const membership = await prisma.membership.findFirst({
           where: { userId: token.id as string, isDefault: true },
