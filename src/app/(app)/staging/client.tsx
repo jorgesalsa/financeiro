@@ -307,6 +307,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
   const columns: ColumnDef<StagingEntry>[] = [
     {
       id: "select",
+      enableSorting: false,
+      enableColumnFilter: false,
       header: () => (
         <input
           type="checkbox"
@@ -352,10 +354,16 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           {row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar"}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar";
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       id: "fornecedorCliente",
       header: "Fornecedor / Cliente",
+      accessorFn: (row) =>
+        row.supplier?.name ?? row.customer?.name ?? row.counterpartName ?? "",
       cell: ({ row }) =>
         row.original.supplier?.name ??
         row.original.customer?.name ??
@@ -365,6 +373,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     {
       id: "chartOfAccount",
       header: "Categoria",
+      accessorFn: (row) =>
+        row.chartOfAccount ? `${row.chartOfAccount.code} - ${row.chartOfAccount.name}` : "",
       cell: ({ row }) =>
         row.original.chartOfAccount
           ? `${row.original.chartOfAccount.code} - ${row.original.chartOfAccount.name}`
@@ -373,6 +383,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     {
       id: "costCenter",
       header: "Centro de Custo",
+      accessorFn: (row) =>
+        row.costCenter ? `${row.costCenter.code} - ${row.costCenter.name}` : "",
       cell: ({ row }) =>
         row.original.costCenter
           ? `${row.original.costCenter.code} - ${row.original.costCenter.name}`
@@ -381,6 +393,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     {
       id: "pago",
       header: "Pago",
+      enableColumnFilter: false,
       cell: ({ row }) =>
         row.original.pendingSettlement ? (
           <Badge className="bg-green-100 text-green-800">Sim</Badge>
@@ -394,6 +407,10 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           {STAGING_SOURCE_LABELS[row.original.source] ?? row.original.source}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = STAGING_SOURCE_LABELS[row.original.source] ?? row.original.source;
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "status",
@@ -403,9 +420,15 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           {STAGING_STATUS_LABELS[row.original.status]}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = STAGING_STATUS_LABELS[row.original.status] ?? row.original.status;
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableColumnFilter: false,
       header: "Acoes",
       cell: ({ row }) => {
         const entry = row.original;

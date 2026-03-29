@@ -211,6 +211,10 @@ export function EntriesClient({
           {row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar"}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar";
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "category",
@@ -220,6 +224,10 @@ export function EntriesClient({
           {CATEGORY_LABELS[row.original.category] ?? row.original.category}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = CATEGORY_LABELS[row.original.category] ?? row.original.category;
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "movementType",
@@ -232,6 +240,12 @@ export function EntriesClient({
           </Badge>
         ) : "—";
       },
+      filterFn: (row, _col, value: string) => {
+        const mt = row.original.movementType;
+        if (!mt) return false;
+        const label = MOVEMENT_TYPE_LABELS[mt as keyof typeof MOVEMENT_TYPE_LABELS] ?? mt;
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "status",
@@ -241,10 +255,18 @@ export function EntriesClient({
           {ENTRY_STATUS_LABELS[row.original.status]}
         </Badge>
       ),
+      filterFn: (row, _col, value: string) => {
+        const label = ENTRY_STATUS_LABELS[row.original.status] ?? row.original.status;
+        return label.toLowerCase().includes(value.toLowerCase());
+      },
     },
     {
       id: "classificationStatus",
       header: "Class.",
+      accessorFn: (row) => {
+        const cs = row.classificationStatus;
+        return cs ? (CLASSIFICATION_STATUS_LABELS[cs as keyof typeof CLASSIFICATION_STATUS_LABELS] ?? cs) : "";
+      },
       cell: ({ row }) => {
         const cs = row.original.classificationStatus;
         return cs ? (
@@ -256,7 +278,9 @@ export function EntriesClient({
     },
     {
       id: "chartOfAccount",
-      header: "Conta",
+      header: "Categoria",
+      accessorFn: (row) =>
+        row.chartOfAccount ? `${row.chartOfAccount.code} - ${row.chartOfAccount.name}` : "",
       cell: ({ row }) =>
         row.original.chartOfAccount
           ? `${row.original.chartOfAccount.code}`
@@ -275,6 +299,8 @@ export function EntriesClient({
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableColumnFilter: false,
       header: "Acoes",
       cell: ({ row }) => {
         const entry = row.original;
