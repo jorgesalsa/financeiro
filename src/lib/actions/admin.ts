@@ -45,13 +45,13 @@ export async function createTenant(data: {
       },
     });
 
-    // Create default chart of accounts (top-level groups)
+    // Create default chart of accounts (top-level groups — financial/managerial)
     const defaultAccounts = [
-      { code: "1", name: "ATIVO", type: "ASSET" as const, level: 1 },
-      { code: "2", name: "PASSIVO", type: "LIABILITY" as const, level: 1 },
-      { code: "3", name: "PATRIMONIO LIQUIDO", type: "EQUITY" as const, level: 1 },
-      { code: "4", name: "RECEITAS", type: "REVENUE" as const, level: 1 },
-      { code: "5", name: "DESPESAS", type: "EXPENSE" as const, level: 1 },
+      { code: "1", name: "RECEITAS", type: "REVENUE" as const, level: 1 },
+      { code: "2", name: "DEDUÇÕES E IMPOSTOS", type: "DEDUCTION" as const, level: 1 },
+      { code: "3", name: "CUSTOS", type: "COST" as const, level: 1 },
+      { code: "4", name: "DESPESAS OPERACIONAIS", type: "EXPENSE" as const, level: 1 },
+      { code: "5", name: "INVESTIMENTOS E RETIRADAS", type: "INVESTMENT" as const, level: 1 },
     ];
 
     for (const account of defaultAccounts) {

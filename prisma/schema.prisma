@@ -17,11 +17,11 @@ enum Role {
 }
 
 enum AccountType {
-  ASSET
-  LIABILITY
-  EQUITY
   REVENUE
+  DEDUCTION
+  COST
   EXPENSE
+  INVESTMENT
 }
 
 enum BankAccountType {

@@ -28,7 +28,6 @@ import {
   UtensilsCrossed,
   Briefcase,
   ShoppingCart,
-  BookOpen,
   LayoutTemplate,
   Loader2,
   AlertTriangle,
@@ -38,22 +37,22 @@ import { useRouter } from "next/navigation";
 import type { AccountType } from "@/generated/prisma";
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  ASSET: "Ativo",
-  LIABILITY: "Passivo",
-  EQUITY: "Patrimônio Líquido",
   REVENUE: "Receita",
+  DEDUCTION: "Dedução",
+  COST: "Custo",
   EXPENSE: "Despesa",
+  INVESTMENT: "Investimento",
 };
 
 const ACCOUNT_TYPE_VARIANTS: Record<
   string,
   "default" | "secondary" | "destructive" | "outline"
 > = {
-  ASSET: "default",
-  LIABILITY: "secondary",
-  EQUITY: "outline",
   REVENUE: "default",
+  DEDUCTION: "secondary",
+  COST: "outline",
   EXPENSE: "destructive",
+  INVESTMENT: "secondary",
 };
 
 type ChartOfAccount = {
@@ -80,7 +79,6 @@ const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   alimentos_bebidas: UtensilsCrossed,
   servicos: Briefcase,
   comercio: ShoppingCart,
-  contabil: BookOpen,
 };
 
 const TEMPLATE_COLORS: Record<string, string> = {
@@ -88,7 +86,6 @@ const TEMPLATE_COLORS: Record<string, string> = {
   alimentos_bebidas: "border-orange-500/30 hover:border-orange-500 hover:bg-orange-500/5",
   servicos: "border-purple-500/30 hover:border-purple-500 hover:bg-purple-500/5",
   comercio: "border-green-500/30 hover:border-green-500 hover:bg-green-500/5",
-  contabil: "border-gray-500/30 hover:border-gray-500 hover:bg-gray-500/5",
 };
 
 const TEMPLATE_ICON_COLORS: Record<string, string> = {
@@ -96,7 +93,6 @@ const TEMPLATE_ICON_COLORS: Record<string, string> = {
   alimentos_bebidas: "text-orange-500",
   servicos: "text-purple-500",
   comercio: "text-green-500",
-  contabil: "text-gray-500",
 };
 
 export function ChartOfAccountsClient({
@@ -515,11 +511,11 @@ export function ChartOfAccountsClient({
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                 >
                   <option value="">Selecione...</option>
-                  <option value="ASSET">Ativo</option>
-                  <option value="LIABILITY">Passivo</option>
-                  <option value="EQUITY">Patrimônio Líquido</option>
                   <option value="REVENUE">Receita</option>
+                  <option value="DEDUCTION">Dedução</option>
+                  <option value="COST">Custo</option>
                   <option value="EXPENSE">Despesa</option>
+                  <option value="INVESTMENT">Investimento</option>
                 </select>
               </div>
               <div>

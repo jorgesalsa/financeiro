@@ -40,11 +40,11 @@ export async function createInternalTransfer(params: {
 
   // Need a chart of account for TRANSFER entries — get any active one
   const transferAccount = await prisma.chartOfAccount.findFirst({
-    where: { tenantId: params.tenantId, active: true, type: "ASSET" },
+    where: { tenantId: params.tenantId, active: true },
     orderBy: { code: "asc" },
   });
   if (!transferAccount) {
-    throw new Error("Nenhuma conta contábil ativa do tipo ATIVO encontrada");
+    throw new Error("Nenhuma conta contábil ativa encontrada");
   }
 
   const result = await prisma.$transaction(async (tx) => {

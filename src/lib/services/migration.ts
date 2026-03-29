@@ -1056,7 +1056,7 @@ interface EnumFieldDef {
 function getEnumFields(entityType: MigrationEntityType): EnumFieldDef[] {
   switch (entityType) {
     case "CHART_OF_ACCOUNTS":
-      return [{ field: "type", values: ["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"] }];
+      return [{ field: "type", values: ["REVENUE", "DEDUCTION", "COST", "EXPENSE", "INVESTMENT"] }];
     case "BANK_ACCOUNTS":
       return [{ field: "account_type", values: ["CHECKING", "SAVINGS", "INVESTMENT"] }];
     case "PAYMENT_METHODS":

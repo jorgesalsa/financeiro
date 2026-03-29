@@ -135,7 +135,7 @@ export function NewMigrationClient({ userRole }: NewMigrationClientProps) {
       {
         name: "plano_de_contas",
         headers: ["code", "name", "type", "parent_code", "description"],
-        example: { code: "1.1.01", name: "Caixa Geral", type: "ASSET", parent_code: "1.1", description: "Conta de caixa principal" },
+        example: { code: "1.01.01", name: "Venda de Mercadorias", type: "REVENUE", parent_code: "1.01", description: "Receita de vendas de mercadorias" },
       },
       {
         name: "centros_de_custo",

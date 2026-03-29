@@ -3,7 +3,7 @@ import { z } from "zod";
 export const chartOfAccountSchema = z.object({
   code: z.string().min(1, "Código é obrigatório"),
   name: z.string().min(1, "Nome é obrigatório"),
-  type: z.enum(["ASSET", "LIABILITY", "EQUITY", "REVENUE", "EXPENSE"]),
+  type: z.enum(["REVENUE", "DEDUCTION", "COST", "EXPENSE", "INVESTMENT"]),
   parentId: z.string().nullable().optional(),
   isAnalytic: z.boolean().default(true),
   active: z.boolean().default(true),

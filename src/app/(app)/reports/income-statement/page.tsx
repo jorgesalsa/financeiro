@@ -3,12 +3,6 @@ import { getCurrentUser } from "@/lib/auth-utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils/format";
-import type { AccountType } from "@/generated/prisma";
-
-const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  REVENUE: "Receitas",
-  EXPENSE: "Despesas",
-};
 
 export default async function IncomeStatementPage() {
   const user = await getCurrentUser();
@@ -50,10 +44,13 @@ export default async function IncomeStatementPage() {
 
   const accountMap = new Map<string, AccountRow>();
 
+  // Financial DRE types: REVENUE, DEDUCTION, COST, EXPENSE, INVESTMENT
+  const DRE_TYPES = ["REVENUE", "DEDUCTION", "COST", "EXPENSE", "INVESTMENT"];
+
   for (const entry of entries) {
     if (!entry.chartOfAccount) continue;
     const { id, code, name, type } = entry.chartOfAccount;
-    if (type !== "REVENUE" && type !== "EXPENSE") continue;
+    if (!DRE_TYPES.includes(type)) continue;
 
     if (!accountMap.has(id)) {
       accountMap.set(id, {
@@ -76,20 +73,111 @@ export default async function IncomeStatementPage() {
     .filter((r) => r.type === "REVENUE")
     .sort((a, b) => a.code.localeCompare(b.code));
 
+  const deductions = Array.from(accountMap.values())
+    .filter((r) => r.type === "DEDUCTION")
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  const costs = Array.from(accountMap.values())
+    .filter((r) => r.type === "COST")
+    .sort((a, b) => a.code.localeCompare(b.code));
+
   const expenses = Array.from(accountMap.values())
     .filter((r) => r.type === "EXPENSE")
     .sort((a, b) => a.code.localeCompare(b.code));
 
+  const investments = Array.from(accountMap.values())
+    .filter((r) => r.type === "INVESTMENT")
+    .sort((a, b) => a.code.localeCompare(b.code));
+
   const totalRevenue = revenues.reduce((sum, r) => sum + r.ytd, 0);
+  const totalDeduction = deductions.reduce((sum, r) => sum + r.ytd, 0);
+  const totalCost = costs.reduce((sum, r) => sum + r.ytd, 0);
   const totalExpense = expenses.reduce((sum, r) => sum + r.ytd, 0);
-  const netIncome = totalRevenue - totalExpense;
+  const totalInvestment = investments.reduce((sum, r) => sum + r.ytd, 0);
+
+  const netRevenue = totalRevenue - totalDeduction;
+  const grossProfit = netRevenue - totalCost;
+  const operatingResult = grossProfit - totalExpense;
+  const netResult = operatingResult - totalInvestment;
 
   const revenueMonthly = months.map((_, i) =>
     revenues.reduce((sum, r) => sum + r.monthly[i], 0)
   );
+  const deductionMonthly = months.map((_, i) =>
+    deductions.reduce((sum, r) => sum + r.monthly[i], 0)
+  );
+  const costMonthly = months.map((_, i) =>
+    costs.reduce((sum, r) => sum + r.monthly[i], 0)
+  );
   const expenseMonthly = months.map((_, i) =>
     expenses.reduce((sum, r) => sum + r.monthly[i], 0)
   );
+  const investmentMonthly = months.map((_, i) =>
+    investments.reduce((sum, r) => sum + r.monthly[i], 0)
+  );
+
+  function renderSection(
+    title: string,
+    rows: AccountRow[],
+    totalLabel: string,
+    total: number,
+    monthly: number[],
+    bgClass: string,
+    textClass: string,
+  ) {
+    return (
+      <>
+        <tr className={bgClass}>
+          <td colSpan={14} className={`px-3 py-2 font-bold ${textClass}`}>
+            {title}
+          </td>
+        </tr>
+        {rows.map((row) => (
+          <tr key={row.code} className="border-b">
+            <td className="px-3 py-2 sticky left-0 bg-background">
+              {row.code} - {row.name}
+            </td>
+            {row.monthly.map((val, i) => (
+              <td key={i} className="px-3 py-2 text-right">
+                {val > 0 ? formatCurrency(val) : "—"}
+              </td>
+            ))}
+            <td className="px-3 py-2 text-right font-medium">
+              {formatCurrency(row.ytd)}
+            </td>
+          </tr>
+        ))}
+        <tr className={`border-b ${bgClass} font-bold`}>
+          <td className={`px-3 py-2 sticky left-0 ${bgClass}`}>{totalLabel}</td>
+          {monthly.map((val, i) => (
+            <td key={i} className="px-3 py-2 text-right">
+              {formatCurrency(val)}
+            </td>
+          ))}
+          <td className="px-3 py-2 text-right">{formatCurrency(total)}</td>
+        </tr>
+      </>
+    );
+  }
+
+  function renderSubtotalRow(label: string, monthly: number[], total: number, bgClass: string) {
+    return (
+      <tr className={`border-b ${bgClass} font-bold`}>
+        <td className={`px-3 py-2 sticky left-0 ${bgClass}`}>{label}</td>
+        {monthly.map((val, i) => (
+          <td key={i} className="px-3 py-2 text-right">
+            {formatCurrency(val)}
+          </td>
+        ))}
+        <td className="px-3 py-2 text-right">{formatCurrency(total)}</td>
+      </tr>
+    );
+  }
+
+  const netRevenueMonthly = months.map((_, i) => revenueMonthly[i] - deductionMonthly[i]);
+  const grossProfitMonthly = months.map((_, i) => netRevenueMonthly[i] - costMonthly[i]);
+  const operatingResultMonthly = months.map((_, i) => grossProfitMonthly[i] - expenseMonthly[i]);
+  const netResultMonthly = months.map((_, i) => operatingResultMonthly[i] - investmentMonthly[i]);
 
   return (
     <div className="space-y-6">
@@ -99,27 +187,33 @@ export default async function IncomeStatementPage() {
       />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Receita Total</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Receita Bruta</p>
           <p className="text-lg sm:text-2xl font-bold text-green-600">
             {formatCurrency(totalRevenue)}
           </p>
         </Card>
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Despesa Total</p>
-          <p className="text-lg sm:text-2xl font-bold text-red-600">
-            {formatCurrency(totalExpense)}
+          <p className="text-xs sm:text-sm text-muted-foreground">Receita Líquida</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-600">
+            {formatCurrency(netRevenue)}
           </p>
         </Card>
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Resultado Liquido</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Lucro Bruto</p>
+          <p className={`text-lg sm:text-2xl font-bold ${grossProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+            {formatCurrency(grossProfit)}
+          </p>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground">Resultado Líquido</p>
           <p
             className={`text-lg sm:text-2xl font-bold ${
-              netIncome >= 0 ? "text-green-600" : "text-red-600"
+              netResult >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
-            {formatCurrency(netIncome)}
+            {formatCurrency(netResult)}
           </p>
         </Card>
       </div>
@@ -141,77 +235,45 @@ export default async function IncomeStatementPage() {
             </tr>
           </thead>
           <tbody>
-            {/* Revenue section */}
-            <tr className="bg-green-50">
-              <td colSpan={14} className="px-3 py-2 font-bold text-green-800">
-                RECEITAS
-              </td>
-            </tr>
-            {revenues.map((row) => (
-              <tr key={row.code} className="border-b">
-                <td className="px-3 py-2 sticky left-0 bg-background">
-                  {row.code} - {row.name}
-                </td>
-                {row.monthly.map((val, i) => (
-                  <td key={i} className="px-3 py-2 text-right">
-                    {val > 0 ? formatCurrency(val) : "—"}
-                  </td>
-                ))}
-                <td className="px-3 py-2 text-right font-medium">
-                  {formatCurrency(row.ytd)}
-                </td>
-              </tr>
-            ))}
-            <tr className="border-b bg-green-50 font-bold">
-              <td className="px-3 py-2 sticky left-0 bg-green-50">Total Receitas</td>
-              {revenueMonthly.map((val, i) => (
-                <td key={i} className="px-3 py-2 text-right">
-                  {formatCurrency(val)}
-                </td>
-              ))}
-              <td className="px-3 py-2 text-right">{formatCurrency(totalRevenue)}</td>
-            </tr>
+            {/* 1. RECEITAS */}
+            {renderSection("RECEITAS", revenues, "Total Receita Bruta", totalRevenue, revenueMonthly, "bg-green-50", "text-green-800")}
 
-            {/* Expense section */}
-            <tr className="bg-red-50">
-              <td colSpan={14} className="px-3 py-2 font-bold text-red-800">
-                DESPESAS
-              </td>
-            </tr>
-            {expenses.map((row) => (
-              <tr key={row.code} className="border-b">
-                <td className="px-3 py-2 sticky left-0 bg-background">
-                  {row.code} - {row.name}
-                </td>
-                {row.monthly.map((val, i) => (
-                  <td key={i} className="px-3 py-2 text-right">
-                    {val > 0 ? formatCurrency(val) : "—"}
-                  </td>
-                ))}
-                <td className="px-3 py-2 text-right font-medium">
-                  {formatCurrency(row.ytd)}
-                </td>
-              </tr>
-            ))}
-            <tr className="border-b bg-red-50 font-bold">
-              <td className="px-3 py-2 sticky left-0 bg-red-50">Total Despesas</td>
-              {expenseMonthly.map((val, i) => (
-                <td key={i} className="px-3 py-2 text-right">
-                  {formatCurrency(val)}
-                </td>
-              ))}
-              <td className="px-3 py-2 text-right">{formatCurrency(totalExpense)}</td>
-            </tr>
+            {/* 2. DEDUÇÕES */}
+            {deductions.length > 0 && (
+              <>
+                {renderSection("(-) DEDUÇÕES E IMPOSTOS", deductions, "Total Deduções", totalDeduction, deductionMonthly, "bg-amber-50", "text-amber-800")}
+                {renderSubtotalRow("= RECEITA LÍQUIDA", netRevenueMonthly, netRevenue, "bg-green-100")}
+              </>
+            )}
 
-            {/* Net income */}
+            {/* 3. CUSTOS */}
+            {costs.length > 0 && (
+              <>
+                {renderSection("(-) CUSTOS", costs, "Total Custos", totalCost, costMonthly, "bg-orange-50", "text-orange-800")}
+                {renderSubtotalRow("= LUCRO BRUTO", grossProfitMonthly, grossProfit, "bg-blue-50")}
+              </>
+            )}
+
+            {/* 4. DESPESAS */}
+            {renderSection("(-) DESPESAS OPERACIONAIS", expenses, "Total Despesas", totalExpense, expenseMonthly, "bg-red-50", "text-red-800")}
+            {renderSubtotalRow("= RESULTADO OPERACIONAL", operatingResultMonthly, operatingResult, "bg-blue-100")}
+
+            {/* 5. INVESTIMENTOS */}
+            {investments.length > 0 && (
+              <>
+                {renderSection("(-) INVESTIMENTOS E RETIRADAS", investments, "Total Investimentos", totalInvestment, investmentMonthly, "bg-purple-50", "text-purple-800")}
+              </>
+            )}
+
+            {/* RESULTADO LIQUIDO */}
             <tr className="bg-muted font-bold text-lg">
-              <td className="px-3 py-3 sticky left-0 bg-muted">RESULTADO LIQUIDO</td>
-              {months.map((_, i) => (
+              <td className="px-3 py-3 sticky left-0 bg-muted">RESULTADO LÍQUIDO</td>
+              {netResultMonthly.map((val, i) => (
                 <td key={i} className="px-3 py-3 text-right">
-                  {formatCurrency(revenueMonthly[i] - expenseMonthly[i])}
+                  {formatCurrency(val)}
                 </td>
               ))}
-              <td className="px-3 py-3 text-right">{formatCurrency(netIncome)}</td>
+              <td className="px-3 py-3 text-right">{formatCurrency(netResult)}</td>
             </tr>
           </tbody>
         </table>
