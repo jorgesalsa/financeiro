@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { createBankAccount, applyChartTemplate } from "@/lib/actions/master-data";
+import { createBankAccount } from "@/lib/actions/master-data";
 import {
   Building2,
   Landmark,
@@ -18,11 +18,6 @@ import {
   FileText,
   CreditCard,
   LayoutDashboard,
-  LayoutTemplate,
-  UtensilsCrossed,
-  Briefcase,
-  ShoppingCart,
-  BookOpenCheck,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,12 +25,6 @@ interface OnboardingClientProps {
   tenantId: string;
   tenantName: string;
   tenantCnpj: string;
-  templates: {
-    id: string;
-    name: string;
-    description: string;
-    accountCount: number;
-  }[];
 }
 
 type BankAccountRow = {
@@ -49,56 +38,21 @@ type BankAccountRow = {
 
 const STEPS = [
   { label: "Dados da Empresa", icon: Building2 },
-  { label: "Plano de Contas", icon: BookOpenCheck },
   { label: "Contas Bancárias", icon: Landmark },
   { label: "Pronto!", icon: Settings },
 ];
-
-const TEMPLATE_ICONS: Record<string, React.ElementType> = {
-  financeiro_geral: LayoutTemplate,
-  alimentos_bebidas: UtensilsCrossed,
-  servicos: Briefcase,
-  comercio: ShoppingCart,
-};
-
-const TEMPLATE_COLORS: Record<string, string> = {
-  financeiro_geral: "border-blue-500 bg-blue-500/5",
-  alimentos_bebidas: "border-orange-500 bg-orange-500/5",
-  servicos: "border-purple-500 bg-purple-500/5",
-  comercio: "border-green-500 bg-green-500/5",
-};
-
-const TEMPLATE_COLORS_IDLE: Record<string, string> = {
-  financeiro_geral: "border-blue-500/20 hover:border-blue-500",
-  alimentos_bebidas: "border-orange-500/20 hover:border-orange-500",
-  servicos: "border-purple-500/20 hover:border-purple-500",
-  comercio: "border-green-500/20 hover:border-green-500",
-};
-
-const TEMPLATE_ICON_COLORS: Record<string, string> = {
-  financeiro_geral: "text-blue-500",
-  alimentos_bebidas: "text-orange-500",
-  servicos: "text-purple-500",
-  comercio: "text-green-500",
-};
 
 export function OnboardingClient({
   tenantId,
   tenantName,
   tenantCnpj,
-  templates,
 }: OnboardingClientProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [logoUrl, setLogoUrl] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  // Step 2 state (chart template)
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-  const [templateApplied, setTemplateApplied] = useState(false);
-  const [applyingTemplate, setApplyingTemplate] = useState(false);
-
-  // Step 3 state (bank accounts)
+  // Step 2 state (bank accounts)
   const [bankAccounts, setBankAccounts] = useState<BankAccountRow[]>([]);
   const [bankForm, setBankForm] = useState<BankAccountRow>({
     id: "",
@@ -130,25 +84,9 @@ export function OnboardingClient({
     setBankAccounts((prev) => prev.filter((a) => a.id !== id));
   }
 
-  function handleApplyTemplate() {
-    if (!selectedTemplate) return;
-    setApplyingTemplate(true);
-    startTransition(async () => {
-      try {
-        await applyChartTemplate(selectedTemplate, { clearExisting: true });
-        setTemplateApplied(true);
-        setCurrentStep(2);
-      } catch (err: any) {
-        alert("Erro ao aplicar template: " + err.message);
-      } finally {
-        setApplyingTemplate(false);
-      }
-    });
-  }
-
-  function handleNextStep3() {
+  function handleNextStep2() {
     if (bankAccounts.length === 0) {
-      setCurrentStep(3);
+      setCurrentStep(2);
       return;
     }
     setSavingAccounts(true);
@@ -165,7 +103,7 @@ export function OnboardingClient({
             active: true,
           });
         }
-        setCurrentStep(3);
+        setCurrentStep(2);
       } catch (err: any) {
         alert("Erro ao salvar contas: " + err.message);
       } finally {
@@ -265,97 +203,8 @@ export function OnboardingClient({
         </Card>
       )}
 
-      {/* Step 2: Plano de Contas */}
+      {/* Step 2: Contas Bancárias */}
       {currentStep === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Escolha o Plano de Contas</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Selecione um modelo que melhor se adapta ao seu tipo de negócio.
-              Você pode personalizar depois.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3">
-              {templates.map((t) => {
-                const Icon = TEMPLATE_ICONS[t.id] ?? LayoutTemplate;
-                const iconColor =
-                  TEMPLATE_ICON_COLORS[t.id] ?? "text-muted-foreground";
-                const isSelected = selectedTemplate === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTemplate(t.id)}
-                    disabled={applyingTemplate}
-                    className={cn(
-                      "flex items-start gap-3 rounded-lg border-2 p-4 text-left transition-all disabled:opacity-50",
-                      isSelected
-                        ? TEMPLATE_COLORS[t.id] ?? "border-primary bg-primary/5"
-                        : TEMPLATE_COLORS_IDLE[t.id] ?? "border-border hover:border-primary/50"
-                    )}
-                  >
-                    <Icon
-                      className={cn("h-7 w-7 shrink-0 mt-0.5", iconColor)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{t.name}</p>
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {t.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t.accountCount} contas pré-configuradas
-                      </p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <button
-                onClick={() => setCurrentStep(0)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Voltar
-              </button>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentStep(2)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-                >
-                  Pular
-                </button>
-                <button
-                  onClick={handleApplyTemplate}
-                  disabled={!selectedTemplate || applyingTemplate}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {applyingTemplate ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Aplicando...
-                    </>
-                  ) : (
-                    <>
-                      Aplicar e Continuar
-                      <ChevronRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 3: Contas Bancárias */}
-      {currentStep === 2 && (
         <Card>
           <CardHeader>
             <CardTitle>Contas Bancárias</CardTitle>
@@ -498,7 +347,7 @@ export function OnboardingClient({
 
             <div className="flex justify-between pt-2">
               <button
-                onClick={() => setCurrentStep(1)}
+                onClick={() => setCurrentStep(0)}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -506,13 +355,13 @@ export function OnboardingClient({
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentStep(3)}
+                  onClick={() => setCurrentStep(2)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
                 >
                   Pular
                 </button>
                 <button
-                  onClick={handleNextStep3}
+                  onClick={handleNextStep2}
                   disabled={isPending || savingAccounts}
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                 >
@@ -529,8 +378,8 @@ export function OnboardingClient({
         </Card>
       )}
 
-      {/* Step 4: Sucesso */}
-      {currentStep === 3 && (
+      {/* Step 3: Sucesso */}
+      {currentStep === 2 && (
         <Card>
           <CardHeader>
             <CardTitle>Empresa configurada com sucesso!</CardTitle>
@@ -538,7 +387,6 @@ export function OnboardingClient({
           <CardContent className="space-y-6">
             <p className="text-sm text-muted-foreground">
               A empresa <strong>{tenantName}</strong> está pronta para uso.
-              {templateApplied && " Plano de contas aplicado."}
               {bankAccounts.length > 0 && (
                 <>
                   {" "}
