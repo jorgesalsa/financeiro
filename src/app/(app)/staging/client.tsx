@@ -300,8 +300,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
       ),
     },
     {
-      accessorKey: "counterpartName",
-      header: "Contrapartida",
+      id: "fornecedorCliente",
+      header: "Fornecedor / Cliente",
       cell: ({ row }) =>
         row.original.supplier?.name ??
         row.original.customer?.name ??
@@ -493,10 +493,6 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Valor *</label>
                 <Input name="amount" type="number" step="0.01" required />
               </div>
-              <div>
-                <label className="text-sm font-medium">Contrapartida</label>
-                <Input name="counterpartName" />
-              </div>
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Conta Contabil</label>
                 <select
@@ -631,13 +627,6 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   step="0.01"
                   defaultValue={editing?.amount ?? 0}
                   required
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Contrapartida</label>
-                <Input
-                  name="counterpartName"
-                  defaultValue={editing?.counterpartName ?? ""}
                 />
               </div>
               <div className="sm:col-span-2">
