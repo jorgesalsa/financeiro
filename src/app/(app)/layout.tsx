@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
+import { AuthSessionProvider } from "./session-provider";
 import prisma from "@/lib/db";
 
 export default async function AppLayout({
@@ -13,14 +14,8 @@ export default async function AppLayout({
 
   const user = session.user as any;
 
-  // Fetch current tenant name, memberships, and unread notifications in parallel
-  const [tenant, memberships, unreadNotifications] = await Promise.all([
-    user.tenantId
-      ? prisma.tenant.findUnique({
-          where: { id: user.tenantId },
-          select: { name: true },
-        })
-      : null,
+  // Fetch memberships and unread notifications in parallel
+  const [memberships, unreadNotifications] = await Promise.all([
     prisma.membership.findMany({
       where: { userId: user.id },
       include: {
@@ -35,7 +30,11 @@ export default async function AppLayout({
     }),
   ]);
 
-  const tenantName = tenant?.name || "Sem empresa";
+  // Determine current tenant from DB (isDefault membership) — not from JWT
+  // This ensures consistency even if the JWT is stale after a tenant switch
+  const defaultMembership = memberships.find((m) => m.isDefault);
+  const currentTenantId = defaultMembership?.tenantId || user.tenantId || "";
+  const tenantName = defaultMembership?.tenant.name || "Sem empresa";
 
   const tenants = memberships.map((m) => ({
     tenantId: m.tenantId,
@@ -47,16 +46,19 @@ export default async function AppLayout({
   }));
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        userName={user.name || "Usuário"}
-        tenantName={tenantName}
-        tenants={tenants}
-        unreadNotifications={unreadNotifications}
-      />
-      <main className="flex-1 overflow-y-auto bg-background">
-        <div className="p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>
-      </main>
-    </div>
+    <AuthSessionProvider>
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          userName={user.name || "Usuário"}
+          tenantName={tenantName}
+          currentTenantId={currentTenantId}
+          tenants={tenants}
+          unreadNotifications={unreadNotifications}
+        />
+        <main className="flex-1 overflow-y-auto bg-background">
+          <div className="p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>
+        </main>
+      </div>
+    </AuthSessionProvider>
   );
 }

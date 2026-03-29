@@ -13,11 +13,12 @@ import { NotificationBell } from "./notification-bell";
 interface SidebarProps {
   userName: string;
   tenantName: string;
+  currentTenantId: string;
   tenants: TenantOption[];
   unreadNotifications: number;
 }
 
-export function Sidebar({ userName, tenantName, tenants, unreadNotifications }: SidebarProps) {
+export function Sidebar({ userName, tenantName, currentTenantId, tenants, unreadNotifications }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -49,6 +50,7 @@ export function Sidebar({ userName, tenantName, tenants, unreadNotifications }: 
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold">Sistema Financeiro</h1>
           <TenantSwitcher
+            currentTenantId={currentTenantId}
             currentTenantName={tenantName}
             tenants={tenants}
           />

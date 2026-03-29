@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { switchTenant } from "@/lib/actions/tenant";
-import { Building2, ChevronDown, Check, Loader2, Ban } from "lucide-react";
+import { Building2, ChevronDown, Check, Loader2 } from "lucide-react";
 
 export type TenantOption = {
   tenantId: string;
@@ -15,15 +15,17 @@ export type TenantOption = {
 };
 
 interface TenantSwitcherProps {
+  currentTenantId: string;
   currentTenantName: string;
   tenants: TenantOption[];
 }
 
 export function TenantSwitcher({
+  currentTenantId,
   currentTenantName,
   tenants,
 }: TenantSwitcherProps) {
-  const router = useRouter();
+  const { update } = useSession();
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -48,9 +50,10 @@ export function TenantSwitcher({
     setSwitching(true);
     try {
       await switchTenant(tenantId);
+      // Update the JWT session to reflect the new default tenant
+      await update();
       setOpen(false);
-      // Force full page reload to refresh all server components with new tenant context
-      router.refresh();
+      // Full page reload to refresh all server components with new tenant context
       window.location.href = "/dashboard";
     } catch (err: any) {
       alert(err.message);
@@ -70,8 +73,9 @@ export function TenantSwitcher({
     );
   }
 
-  const currentTenant = tenants.find((t) => t.isDefault);
-  const otherTenants = tenants.filter((t) => t.tenantId !== currentTenant?.tenantId);
+  // Use currentTenantId from session/layout (not isDefault from DB)
+  // to determine which tenant is active — avoids mismatch when JWT is stale
+  const otherTenants = tenants.filter((t) => t.tenantId !== currentTenantId);
 
   return (
     <div className="relative" ref={dropdownRef}>
