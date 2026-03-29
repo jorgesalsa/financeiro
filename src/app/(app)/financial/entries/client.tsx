@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   Dialog,
   DialogContent,
@@ -464,14 +465,15 @@ export function EntriesClient({
               </div>
               <div>
                 <label className="text-sm font-medium">Conta Bancaria *</label>
-                <Select name="bankAccountId" required>
-                  <option value="">Selecione...</option>
-                  {bankAccounts.map((ba) => (
-                    <option key={ba.id} value={ba.id}>
-                      {ba.bankName} - {ba.accountNumber}
-                    </option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  name="bankAccountId"
+                  required
+                  placeholder="Buscar conta..."
+                  options={bankAccounts.map((ba) => ({
+                    value: ba.id,
+                    label: `${ba.bankName} - ${ba.accountNumber}`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Forma Pagamento *</label>

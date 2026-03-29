@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { importBankStatement } from "@/lib/actions/import";
@@ -82,14 +82,15 @@ export function BankStatementImportClient({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="text-sm font-medium">Conta Bancária *</label>
-                <Select name="bankAccountId" required>
-                  <option value="">Selecione...</option>
-                  {bankAccounts.map((ba) => (
-                    <option key={ba.id} value={ba.id}>
-                      {ba.bankName} - Ag {ba.agency} / CC {ba.accountNumber}
-                    </option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  name="bankAccountId"
+                  required
+                  placeholder="Buscar conta..."
+                  options={bankAccounts.map((ba) => ({
+                    value: ba.id,
+                    label: `${ba.bankName} - Ag ${ba.agency} / CC ${ba.accountNumber}`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Arquivo (OFX, CSV, TXT) *</label>

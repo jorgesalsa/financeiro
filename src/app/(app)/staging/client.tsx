@@ -35,6 +35,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type StagingEntry = {
   id: string;
@@ -585,12 +586,14 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Conta Bancaria</label>
-                <select name="bankAccountId" className={selectClass}>
-                  <option value="">Selecione...</option>
-                  {lookups.bankAccounts.map((b) => (
-                    <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  name="bankAccountId"
+                  placeholder="Buscar conta..."
+                  options={lookups.bankAccounts.map((b) => ({
+                    value: b.id,
+                    label: `${b.bankName} - ${b.accountNumber}`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Fornecedor</label>
@@ -661,12 +664,15 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   </div>
                   <div>
                     <label className="text-sm font-medium">Conta Bancaria (Pgto) *</label>
-                    <select name="settlement_bankAccountId" required className={selectClass}>
-                      <option value="">Selecione...</option>
-                      {lookups.bankAccounts.map((b) => (
-                        <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
-                      ))}
-                    </select>
+                    <SearchableSelect
+                      name="settlement_bankAccountId"
+                      required
+                      placeholder="Buscar conta..."
+                      options={lookups.bankAccounts.map((b) => ({
+                        value: b.id,
+                        label: `${b.bankName} - ${b.accountNumber}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Forma de Pagamento (Pgto)</label>
@@ -795,16 +801,15 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Conta Bancaria</label>
-                <select
+                <SearchableSelect
                   name="bankAccountId"
                   defaultValue={editing?.bankAccountId ?? ""}
-                  className={selectClass}
-                >
-                  <option value="">Selecione...</option>
-                  {lookups.bankAccounts.map((b) => (
-                    <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
-                  ))}
-                </select>
+                  placeholder="Buscar conta..."
+                  options={lookups.bankAccounts.map((b) => ({
+                    value: b.id,
+                    label: `${b.bankName} - ${b.accountNumber}`,
+                  }))}
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Fornecedor</label>
@@ -913,17 +918,16 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   </div>
                   <div>
                     <label className="text-sm font-medium">Conta Bancaria (Pgto) *</label>
-                    <select
+                    <SearchableSelect
                       name="settlement_bankAccountId"
                       defaultValue={editing?.pendingSettlement?.bankAccountId ?? ""}
                       required
-                      className={selectClass}
-                    >
-                      <option value="">Selecione...</option>
-                      {lookups.bankAccounts.map((b) => (
-                        <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
-                      ))}
-                    </select>
+                      placeholder="Buscar conta..."
+                      options={lookups.bankAccounts.map((b) => ({
+                        value: b.id,
+                        label: `${b.bankName} - ${b.accountNumber}`,
+                      }))}
+                    />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Forma de Pagamento (Pgto)</label>

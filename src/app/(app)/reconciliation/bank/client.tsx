@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { MATCH_BASIS_LABELS } from "@/lib/constants/statuses";
 import { RefreshCw, Link2, CheckCircle, AlertTriangle } from "lucide-react";
@@ -213,18 +213,19 @@ export function BankReconciliationClient({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
             <div>
               <label className="text-xs sm:text-sm font-medium">Conta Bancaria</label>
-              <Select
+              <SearchableSelect
                 value={selectedBankAccount}
-                onChange={(e) => setSelectedBankAccount(e.target.value)}
+                onChange={(val) => setSelectedBankAccount(val)}
+                placeholder="Todas as Contas"
                 className="w-full sm:w-64"
-              >
-                <option value="ALL">Todas as Contas</option>
-                {bankAccounts.map((ba) => (
-                  <option key={ba.id} value={ba.id}>
-                    {ba.bankName} - {ba.accountNumber}
-                  </option>
-                ))}
-              </Select>
+                options={[
+                  { value: "ALL", label: "Todas as Contas" },
+                  ...bankAccounts.map((ba) => ({
+                    value: ba.id,
+                    label: `${ba.bankName} - ${ba.accountNumber}`,
+                  })),
+                ]}
+              />
             </div>
             <div className="flex gap-2">
               <Button onClick={handleAutoReconcile} disabled={isPending} size="sm">
