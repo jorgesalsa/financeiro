@@ -81,13 +81,13 @@ export default async function AgingPage() {
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Total Pagar Vencido</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Total a Pagar Vencido</p>
           <p className="text-lg sm:text-2xl font-bold text-red-600">
             {formatCurrency(totalPayableOverdue)}
           </p>
         </Card>
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Total Receber Vencido</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Total a Receber Vencido</p>
           <p className="text-lg sm:text-2xl font-bold text-orange-600">
             {formatCurrency(totalReceivableOverdue)}
           </p>
