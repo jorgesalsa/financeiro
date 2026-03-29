@@ -5,6 +5,8 @@ import type {
   CardTransactionStatus,
   ChecklistStatus,
   Severity,
+  TransactionType,
+  EntryCategory,
   MovementType,
   FinancialNature,
   ClassificationStatus,
@@ -37,6 +39,32 @@ export const STAGING_STATUS_COLORS: Record<StagingStatus, string> = {
   VALIDATED: "bg-green-100 text-green-800",
   INCORPORATED: "bg-purple-100 text-purple-800",
   REJECTED: "bg-red-100 text-red-800",
+};
+
+// ─── Transaction Type & Category Labels ─────────────────────────────────────
+
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  DEBIT: "Conta a Pagar",
+  CREDIT: "Conta a Receber",
+};
+
+export const TRANSACTION_TYPE_SHORT: Record<TransactionType, string> = {
+  DEBIT: "A Pagar",
+  CREDIT: "A Receber",
+};
+
+export const ENTRY_CATEGORY_LABELS: Record<EntryCategory, string> = {
+  PAYABLE: "Conta a Pagar",
+  RECEIVABLE: "Conta a Receber",
+  TRANSFER: "Transferencia",
+  ADJUSTMENT: "Ajuste",
+};
+
+export const ENTRY_CATEGORY_SHORT: Record<EntryCategory, string> = {
+  PAYABLE: "A Pagar",
+  RECEIVABLE: "A Receber",
+  TRANSFER: "Transf.",
+  ADJUSTMENT: "Ajuste",
 };
 
 // ─── RA05: 4-Layer Taxonomy ─────────────────────────────────────────────────

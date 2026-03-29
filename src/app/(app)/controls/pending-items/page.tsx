@@ -175,8 +175,8 @@ export default async function PendingItemsPage() {
                     </td>
                     <td className="px-3 py-2 sm:px-4 sm:py-3">{entry.description}</td>
                     <td className="px-3 py-2 sm:px-4 sm:py-3">
-                      <Badge variant="outline">
-                        {entry.category === "PAYABLE" ? "Pagar" : "Receber"}
+                      <Badge variant="outline" className={entry.category === "PAYABLE" ? "text-red-700 border-red-200" : "text-green-700 border-green-200"}>
+                        {entry.category === "PAYABLE" ? "A Pagar" : "A Receber"}
                       </Badge>
                     </td>
                     <td className="px-3 py-2 sm:px-4 sm:py-3 text-right whitespace-nowrap">

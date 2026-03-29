@@ -34,8 +34,8 @@ import {
 import { useRouter } from "next/navigation";
 
 const CATEGORY_LABELS: Record<string, string> = {
-  PAYABLE: "A Pagar",
-  RECEIVABLE: "A Receber",
+  PAYABLE: "Conta a Pagar",
+  RECEIVABLE: "Conta a Receber",
   TRANSFER: "Transferencia",
   ADJUSTMENT: "Ajuste",
 };
@@ -206,8 +206,8 @@ export function EntriesClient({
       accessorKey: "transactionType",
       header: "Tipo",
       cell: ({ row }) => (
-        <Badge variant="outline">
-          {row.original.transactionType === "CREDIT" ? "C" : "D"}
+        <Badge variant="outline" className={row.original.transactionType === "CREDIT" ? "text-green-700 border-green-200" : "text-red-700 border-red-200"}>
+          {row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar"}
         </Badge>
       ),
     },
@@ -367,8 +367,8 @@ export function EntriesClient({
             className="w-full sm:w-40"
           >
             <option value="ALL">Todas</option>
-            <option value="PAYABLE">A Pagar</option>
-            <option value="RECEIVABLE">A Receber</option>
+            <option value="PAYABLE">Conta a Pagar</option>
+            <option value="RECEIVABLE">Conta a Receber</option>
             <option value="TRANSFER">Transferencia</option>
             <option value="ADJUSTMENT">Ajuste</option>
           </Select>

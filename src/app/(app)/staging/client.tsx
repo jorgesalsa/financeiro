@@ -294,8 +294,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
       accessorKey: "transactionType",
       header: "Tipo",
       cell: ({ row }) => (
-        <Badge variant="outline">
-          {row.original.transactionType === "CREDIT" ? "C" : "D"}
+        <Badge variant="outline" className={row.original.transactionType === "CREDIT" ? "text-green-700 border-green-200" : "text-red-700 border-red-200"}>
+          {row.original.transactionType === "CREDIT" ? "A Receber" : "A Pagar"}
         </Badge>
       ),
     },
@@ -481,8 +481,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   required
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="DEBIT">Debito</option>
-                  <option value="CREDIT">Credito</option>
+                  <option value="DEBIT">Conta a Pagar</option>
+                  <option value="CREDIT">Conta a Receber</option>
                 </select>
               </div>
               <div className="sm:col-span-2">
@@ -615,8 +615,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   required
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="DEBIT">Debito</option>
-                  <option value="CREDIT">Credito</option>
+                  <option value="DEBIT">Conta a Pagar</option>
+                  <option value="CREDIT">Conta a Receber</option>
                 </select>
               </div>
               <div className="sm:col-span-2">

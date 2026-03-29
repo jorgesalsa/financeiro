@@ -77,12 +77,12 @@ export default async function FinancialCalendarPage() {
                   <div className="flex gap-3 sm:gap-4 text-xs sm:text-sm">
                     {totalPayable > 0 && (
                       <span className="text-red-600">
-                        Saidas: {formatCurrency(totalPayable)}
+                        A Pagar: {formatCurrency(totalPayable)}
                       </span>
                     )}
                     {totalReceivable > 0 && (
                       <span className="text-green-600">
-                        Entradas: {formatCurrency(totalReceivable)}
+                        A Receber: {formatCurrency(totalReceivable)}
                       </span>
                     )}
                   </div>
@@ -102,7 +102,7 @@ export default async function FinancialCalendarPage() {
                               : "text-green-600 border-green-200"
                           }`}
                         >
-                          {entry.category === "PAYABLE" ? "Pagar" : "Receber"}
+                          {entry.category === "PAYABLE" ? "A Pagar" : "A Receber"}
                         </Badge>
                         <span className="text-sm truncate">{entry.description}</span>
                         <span className="text-xs text-muted-foreground hidden sm:inline">
