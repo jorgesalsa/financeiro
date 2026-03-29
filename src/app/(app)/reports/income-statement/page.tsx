@@ -13,7 +13,7 @@ export default async function IncomeStatementPage() {
   const entries = await prisma.officialEntry.findMany({
     where: {
       tenantId: user.tenantId,
-      status: "SETTLED",
+      status: { not: "CANCELLED" },
       category: { not: "TRANSFER" }, // RA06: Exclude internal transfers from DRE
       competenceDate: {
         gte: new Date(`${currentYear}-01-01`),

@@ -101,13 +101,56 @@ export async function createInstallments(data: {
   return result;
 }
 
+// BUG-08 FIX: Reverse bank balance when cancelling settled/partial entries
 export async function cancelEntry(id: string) {
   const user = await getCurrentUser();
 
-  await prisma.officialEntry.update({
-    where: { id },
-    data: { status: "CANCELLED" },
+  await prisma.$transaction(async (tx) => {
+    const entry = await tx.officialEntry.findFirstOrThrow({
+      where: { id, tenantId: user.tenantId },
+      include: { settlements: true },
+    });
+
+    // Reverse each settlement's bank balance impact
+    for (const settlement of entry.settlements) {
+      const paymentAmount =
+        Number(settlement.amount) +
+        Number(settlement.interestAmount ?? 0) +
+        Number(settlement.fineAmount ?? 0) -
+        Number(settlement.discountAmount ?? 0);
+
+      // Reverse: if PAYABLE had decremented, now increment back (and vice versa)
+      const reverseChange =
+        entry.category === "PAYABLE" ? paymentAmount : -paymentAmount;
+
+      await tx.bankAccount.update({
+        where: { id: settlement.bankAccountId },
+        data: { currentBalance: { increment: reverseChange } },
+      });
+    }
+
+    // Delete settlements
+    if (entry.settlements.length > 0) {
+      await tx.settlement.deleteMany({
+        where: { officialEntryId: id },
+      });
+    }
+
+    // Cancel the entry and reset payment fields
+    await tx.officialEntry.update({
+      where: { id },
+      data: {
+        status: "CANCELLED",
+        paidAmount: 0,
+        paidDate: null,
+        interestAmount: 0,
+        fineAmount: 0,
+        discountAmount: 0,
+      },
+    });
   });
 
   revalidatePath("/financial/entries");
+  revalidatePath("/financial/payables");
+  revalidatePath("/financial/receivables");
 }

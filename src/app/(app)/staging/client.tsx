@@ -340,6 +340,11 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     {
       accessorKey: "description",
       header: "Descricao",
+      cell: ({ row }) => (
+        <span className="block max-w-[200px] truncate" title={row.original.description}>
+          {row.original.description}
+        </span>
+      ),
     },
     {
       accessorKey: "amount",

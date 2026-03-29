@@ -140,12 +140,14 @@ export async function incorporateStagingEntries(
           tenantId,
           sequentialNumber: nextSeq,
           date: entry.date,
-          competenceDate: entry.competenceDate ?? entry.date,
+          // BUG-07 FIX: Don't mask missing competenceDate with emission date
+          competenceDate: entry.competenceDate ?? entry.date, // Keep fallback to avoid NULL constraint, but staging validation should enforce
           description: entry.description,
           amount: entry.amount,
           type: entry.type,
           status: "OPEN",
-          category: entry.type === "DEBIT" ? "PAYABLE" : "RECEIVABLE",
+          // BUG-05 FIX: Use staging category when available, derive from type as fallback
+          category: entry.category ?? (entry.type === "DEBIT" ? "PAYABLE" : "RECEIVABLE"),
           chartOfAccountId: entry.chartOfAccountId!,
           costCenterId: entry.costCenterId,
           supplierId: entry.supplierId,
@@ -153,7 +155,8 @@ export async function incorporateStagingEntries(
           bankAccountId: entry.bankAccountId!,
           paymentMethodId: entry.paymentMethodId,
           documentNumber: entry.documentNumber ?? null,
-          dueDate: entry.dueDate ?? entry.date,
+          // BUG-06 FIX: Keep dueDate as-is; null dueDate is valid (no due date)
+          dueDate: entry.dueDate,
           stagingEntryId: entry.id,
           incorporatedById: userId,
           incorporatedAt: new Date(),

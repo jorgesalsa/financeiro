@@ -74,20 +74,37 @@ export default async function DailyCheckPage() {
     });
   }
 
-  // 4. Entries without chart of account
-  const noAccount = await prisma.officialEntry.count({
+  // 4. Staging entries without chart of account (category)
+  // BUG-04 FIX: OfficialEntry.chartOfAccountId is NOT NULL — check staging instead
+  const stagingNoCategory = await prisma.stagingEntry.count({
     where: {
       tenantId: user.tenantId,
-      chartOfAccountId: { equals: null } as any,
-      status: { not: "CANCELLED" },
+      chartOfAccountId: null,
+      status: { notIn: ["REJECTED", "INCORPORATED"] },
     },
   });
-  if (noAccount > 0) {
+  if (stagingNoCategory > 0) {
     checks.push({
-      name: "Lancamentos sem categoria",
-      description: `${noAccount} lancamento(s) sem categoria`,
+      name: "Staging sem categoria",
+      description: `${stagingNoCategory} lancamento(s) no staging sem categoria definida`,
       severity: "MEDIUM",
-      count: noAccount,
+      count: stagingNoCategory,
+    });
+  }
+
+  // 4b. Entries with partial payment (need attention)
+  const partialEntries = await prisma.officialEntry.count({
+    where: {
+      tenantId: user.tenantId,
+      status: "PARTIAL",
+    },
+  });
+  if (partialEntries > 0) {
+    checks.push({
+      name: "Lancamentos parcialmente pagos",
+      description: `${partialEntries} lancamento(s) com pagamento parcial pendente`,
+      severity: partialEntries > 10 ? "MEDIUM" : "LOW",
+      count: partialEntries,
     });
   }
 

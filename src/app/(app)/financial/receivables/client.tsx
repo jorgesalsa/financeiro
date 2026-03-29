@@ -59,6 +59,19 @@ const columns: ColumnDef<ReceivableEntry>[] = [
     cell: ({ row }) => formatCurrency(row.original.paidAmount),
   },
   {
+    id: "remaining",
+    header: "Saldo",
+    accessorFn: (row) => row.amount - row.paidAmount,
+    cell: ({ row }) => {
+      const remaining = row.original.amount - row.original.paidAmount;
+      return (
+        <span className={remaining > 0 ? "text-orange-600 font-medium" : "text-green-600"}>
+          {formatCurrency(remaining)}
+        </span>
+      );
+    },
+  },
+  {
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => (

@@ -60,20 +60,23 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     prevPayable,
     overdueCount,
   ] = await Promise.all([
-    // Current month receivable (revenue) settled
+    // BUG-03 FIX: Filter by status != CANCELLED for competence-based KPIs
+    // Current month receivable (revenue)
     prisma.officialEntry.aggregate({
       where: {
         tenantId,
         category: "RECEIVABLE",
+        status: { not: "CANCELLED" },
         competenceDate: { gte: startOfMonth, lte: endOfMonth },
       },
       _sum: { amount: true },
     }),
-    // Current month payable (expense) settled
+    // Current month payable (expense)
     prisma.officialEntry.aggregate({
       where: {
         tenantId,
         category: "PAYABLE",
+        status: { not: "CANCELLED" },
         competenceDate: { gte: startOfMonth, lte: endOfMonth },
       },
       _sum: { amount: true },
@@ -83,6 +86,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       where: {
         tenantId,
         category: "RECEIVABLE",
+        status: { not: "CANCELLED" },
         competenceDate: { gte: startOfPrevMonth, lte: endOfPrevMonth },
       },
       _sum: { amount: true },
@@ -92,6 +96,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       where: {
         tenantId,
         category: "PAYABLE",
+        status: { not: "CANCELLED" },
         competenceDate: { gte: startOfPrevMonth, lte: endOfPrevMonth },
       },
       _sum: { amount: true },
@@ -121,11 +126,13 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       : null;
 
   // --- Revenue vs Expense (last 6 months) ---
+  // BUG-03 FIX: Exclude cancelled entries from charts
   const monthlyEntries = await prisma.officialEntry.findMany({
     where: {
       tenantId,
       competenceDate: { gte: sixMonthsAgo, lte: endOfMonth },
       category: { in: ["RECEIVABLE", "PAYABLE"] },
+      status: { not: "CANCELLED" },
     },
     select: {
       competenceDate: true,
@@ -181,11 +188,13 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   });
 
   // --- Expense Breakdown by Chart of Account ---
+  // BUG-03 FIX: Exclude cancelled entries from expense breakdown
   const expensesByAccount = await prisma.officialEntry.groupBy({
     by: ["chartOfAccountId"],
     where: {
       tenantId,
       category: "PAYABLE",
+      status: { not: "CANCELLED" },
       competenceDate: { gte: startOfMonth, lte: endOfMonth },
     },
     _sum: { amount: true },

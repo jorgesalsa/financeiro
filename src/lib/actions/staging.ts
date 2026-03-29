@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
 import { getCurrentUser, requireRole } from "@/lib/auth-utils";
 import { createAuditLog } from "@/lib/utils/audit";
-import { validateStagingEntry, incorporateStagingEntries } from "@/lib/services/staging";
+import { validateStagingEntry, incorporateStagingEntries, assertValidTransition } from "@/lib/services/staging";
 import { stagingEntrySchema, type StagingEntryInput } from "@/lib/validations/staging";
 
 export async function listStagingEntries(status?: string) {
@@ -75,12 +75,31 @@ export async function validateEntries(ids: string[]) {
   return results;
 }
 
+// BUG-10 FIX: Use state machine for reject transitions
 export async function rejectStagingEntry(id: string, reason: string) {
   const user = await getCurrentUser();
+
+  const entry = await prisma.stagingEntry.findFirstOrThrow({
+    where: { id, tenantId: user.tenantId },
+  });
+
+  // Validate state machine transition
+  assertValidTransition(entry.status, "REJECTED");
 
   await prisma.stagingEntry.update({
     where: { id },
     data: { status: "REJECTED", rejectionReason: reason },
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "StagingEntry",
+    recordId: id,
+    action: "UPDATE",
+    oldValues: { status: entry.status },
+    newValues: { status: "REJECTED", rejectionReason: reason },
+    userId: user.id,
+    userEmail: user.email,
   });
 
   revalidatePath("/staging");
