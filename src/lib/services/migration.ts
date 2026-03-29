@@ -93,6 +93,8 @@ const SHEET_NAME_TO_ENTITY: Record<string, MigrationEntityType> = {
   formas_pagamento: "PAYMENT_METHODS",
   regras_classificacao: "CLASSIFICATION_RULES",
   regras_validacao: "VALIDATION_RULES",
+  contas_a_pagar: "STAGING_ENTRIES",
+  contas_a_receber: "STAGING_ENTRIES",
   lancamentos: "STAGING_ENTRIES",
   lancamentos_staging: "STAGING_ENTRIES",
   lancamentos_oficiais: "OFFICIAL_ENTRIES",
@@ -490,7 +492,7 @@ export async function processBatch(
       }
 
       try {
-        const resultId = await importSingleItem(entityType, data, tenantId, userId, action);
+        const resultId = await importSingleItem(entityType, data, tenantId, userId, action, item.sheetName ?? undefined);
         if (resultId) {
           entityRollbackIds.push(resultId);
           await prisma.migrationItem.update({
@@ -546,7 +548,8 @@ async function importSingleItem(
   data: Record<string, unknown>,
   tenantId: string,
   userId: string,
-  action: string
+  action: string,
+  sheetName?: string
 ): Promise<string | null> {
   switch (entityType) {
     case "CHART_OF_ACCOUNTS":
@@ -561,6 +564,8 @@ async function importSingleItem(
       return importBankAccount(data, tenantId, action);
     case "PAYMENT_METHODS":
       return importPaymentMethod(data, tenantId, action);
+    case "STAGING_ENTRIES":
+      return importStagingEntry(data, tenantId, userId, action, sheetName);
     default:
       // Other entity types to be implemented in future phases
       return null;
@@ -825,6 +830,128 @@ async function importPaymentMethod(
   return created.id;
 }
 
+async function importStagingEntry(
+  data: Record<string, unknown>,
+  tenantId: string,
+  userId: string,
+  action: string,
+  itemSheetName?: string
+): Promise<string> {
+  // Infer type/category from sheet name if not explicit
+  const sheetName = (itemSheetName ?? String(data._sheetName ?? data.sheetName ?? "")).toLowerCase();
+  const isPayable = sheetName.includes("pagar");
+  const isReceivable = sheetName.includes("receber");
+
+  const type: "DEBIT" | "CREDIT" = data.type
+    ? (String(data.type).toUpperCase() as any)
+    : isPayable
+    ? "DEBIT"
+    : isReceivable
+    ? "CREDIT"
+    : "DEBIT";
+
+  const category: string = data.category
+    ? String(data.category).toUpperCase()
+    : isPayable
+    ? "PAYABLE"
+    : isReceivable
+    ? "RECEIVABLE"
+    : "PAYABLE";
+
+  const movementType: string = data.movement_type
+    ? String(data.movement_type).toUpperCase()
+    : isPayable
+    ? "EXIT"
+    : isReceivable
+    ? "ENTRY"
+    : "EXIT";
+
+  // Resolve related entities by code/cnpj
+  let chartOfAccountId: string | null = null;
+  if (data.chart_of_account_code) {
+    const account = await prisma.chartOfAccount.findFirst({
+      where: { tenantId, code: String(data.chart_of_account_code) },
+    });
+    if (account) chartOfAccountId = account.id;
+  }
+
+  let costCenterId: string | null = null;
+  if (data.cost_center_code) {
+    const cc = await prisma.costCenter.findFirst({
+      where: { tenantId, code: String(data.cost_center_code) },
+    });
+    if (cc) costCenterId = cc.id;
+  }
+
+  let supplierId: string | null = null;
+  const supplierCnpj = data.supplier_cnpj_cpf || data.supplier_cnpj;
+  if (supplierCnpj) {
+    const supplier = await prisma.supplier.findFirst({
+      where: { tenantId, cnpjCpf: String(supplierCnpj) },
+    });
+    if (supplier) supplierId = supplier.id;
+  }
+
+  let customerId: string | null = null;
+  const customerCnpj = data.customer_cnpj_cpf || data.customer_cnpj;
+  if (customerCnpj) {
+    const customer = await prisma.customer.findFirst({
+      where: { tenantId, cnpjCpf: String(customerCnpj) },
+    });
+    if (customer) customerId = customer.id;
+  }
+
+  let bankAccountId: string | null = null;
+  if (data.bank_code && data.agency && data.account_number) {
+    const bank = await prisma.bankAccount.findFirst({
+      where: {
+        tenantId,
+        bankCode: String(data.bank_code),
+        agency: String(data.agency),
+        accountNumber: String(data.account_number),
+      },
+    });
+    if (bank) bankAccountId = bank.id;
+  }
+
+  let paymentMethodId: string | null = null;
+  if (data.payment_method) {
+    const pm = await prisma.paymentMethod.findFirst({
+      where: { tenantId, name: String(data.payment_method) },
+    });
+    if (pm) paymentMethodId = pm.id;
+  }
+
+  const created = await prisma.stagingEntry.create({
+    data: {
+      tenantId,
+      source: "MIGRATION" as any,
+      status: "PENDING" as any,
+      date: new Date(String(data.date)),
+      competenceDate: data.competence_date ? new Date(String(data.competence_date)) : undefined,
+      dueDate: data.due_date ? new Date(String(data.due_date)) : undefined,
+      description: String(data.description),
+      amount: Number(data.amount),
+      type,
+      category: category as any,
+      movementType: movementType as any,
+      financialNature: data.financial_nature ? (String(data.financial_nature).toUpperCase() as any) : undefined,
+      chartOfAccountId,
+      costCenterId,
+      supplierId,
+      customerId,
+      bankAccountId,
+      paymentMethodId,
+      counterpartName: String(data.supplier_name || data.customer_name || ""),
+      counterpartCnpjCpf: String(supplierCnpj || customerCnpj || ""),
+      documentNumber: data.document_number ? String(data.document_number) : undefined,
+      notes: data.notes ? String(data.notes) : undefined,
+      createdById: userId,
+    },
+  });
+  return created.id;
+}
+
 // ─── Rollback ───────────────────────────────────────────────────────────────
 
 export async function rollbackBatch(
@@ -902,13 +1029,8 @@ function getRequiredFields(entityType: MigrationEntityType): string[] {
         "due_date",
         "description",
         "amount",
-        "type",
-        "category",
-        "movement_type",
         "financial_nature",
         "chart_of_account_code",
-        "supplier_cnpj_cpf",
-        "customer_cnpj_cpf",
         "bank_code",
         "agency",
         "account_number",
@@ -940,6 +1062,9 @@ function getEnumFields(entityType: MigrationEntityType): EnumFieldDef[] {
     case "PAYMENT_METHODS":
       return [{ field: "type", values: ["CASH", "BANK_TRANSFER", "PIX", "CREDIT_CARD", "DEBIT_CARD", "BOLETO", "CHECK", "OTHER"] }];
     case "STAGING_ENTRIES":
+      return [
+        { field: "financial_nature", values: ["OPERATIONAL", "NON_OPERATIONAL", "FINANCIAL", "PATRIMONIAL"] },
+      ];
     case "OFFICIAL_ENTRIES":
       return [
         { field: "type", values: ["CREDIT", "DEBIT", "C", "D"] },
