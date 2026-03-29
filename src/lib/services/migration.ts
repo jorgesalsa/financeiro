@@ -925,7 +925,7 @@ async function importStagingEntry(
   const created = await prisma.stagingEntry.create({
     data: {
       tenantId,
-      source: "MIGRATION" as any,
+      source: "MIGRATION",
       status: "PENDING" as any,
       date: new Date(String(data.date)),
       competenceDate: data.competence_date ? new Date(String(data.competence_date)) : undefined,

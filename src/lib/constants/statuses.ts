@@ -1,5 +1,6 @@
 import type {
   StagingStatus,
+  StagingSource,
   EntryStatus,
   ImportStatus,
   CardTransactionStatus,
@@ -18,6 +19,17 @@ import type {
   MigrationItemStatus,
   MigrationSeverity,
 } from "@/generated/prisma";
+
+export const STAGING_SOURCE_LABELS: Record<StagingSource, string> = {
+  MANUAL: "Manual",
+  IMPORT_TAX_INVOICE: "Nota Fiscal",
+  IMPORT_BANK_STATEMENT: "Extrato Bancário",
+  IMPORT_CARD: "Cartão",
+  IMPORT_PURCHASE_INVOICE: "Nota de Compra",
+  IMPORT_PLUGGY: "Pluggy",
+  IMPORT_QIVE: "QIVE",
+  MIGRATION: "Migração",
+};
 
 export const STAGING_STATUS_LABELS: Record<StagingStatus, string> = {
   PENDING: "Pendente",

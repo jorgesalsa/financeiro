@@ -54,6 +54,7 @@ export default async function StagingPage() {
     transactionType: entry.type,
     counterpartName: entry.counterpartName ?? null,
     status: entry.status,
+    source: entry.source,
     chartOfAccountId: entry.chartOfAccountId ?? null,
     costCenterId: entry.costCenterId ?? null,
     bankAccountId: entry.bankAccountId ?? null,

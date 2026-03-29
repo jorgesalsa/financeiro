@@ -24,9 +24,10 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import {
   STAGING_STATUS_LABELS,
   STAGING_STATUS_COLORS,
+  STAGING_SOURCE_LABELS,
 } from "@/lib/constants/statuses";
 import { hasMinRole } from "@/lib/constants/roles";
-import type { Role, StagingStatus } from "@/generated/prisma";
+import type { Role, StagingStatus, StagingSource } from "@/generated/prisma";
 import {
   Plus,
   Pencil,
@@ -47,6 +48,7 @@ type StagingEntry = {
   transactionType: string;
   counterpartName: string | null;
   status: StagingStatus;
+  source: StagingSource;
   chartOfAccount: { code: string; name: string } | null;
   costCenter: { code: string; name: string } | null;
   supplier: { name: string } | null;
@@ -383,6 +385,15 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
         row.original.pendingSettlement ? (
           <Badge className="bg-green-100 text-green-800">Sim</Badge>
         ) : null,
+    },
+    {
+      accessorKey: "source",
+      header: "Origem",
+      cell: ({ row }) => (
+        <Badge variant="outline">
+          {STAGING_SOURCE_LABELS[row.original.source] ?? row.original.source}
+        </Badge>
+      ),
     },
     {
       accessorKey: "status",

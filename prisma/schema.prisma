@@ -82,6 +82,7 @@ enum StagingSource {
   IMPORT_PURCHASE_INVOICE
   IMPORT_PLUGGY
   IMPORT_QIVE
+  MIGRATION
 }
 
 enum StagingStatus {
