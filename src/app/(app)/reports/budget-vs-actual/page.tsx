@@ -142,7 +142,7 @@ export default async function BudgetVsActualPage() {
                   row.totalBudget > 0
                     ? ((row.totalVariance / row.totalBudget) * 100).toFixed(1)
                     : "—";
-                const isOver = row.totalVariance > 0 && row.type === "EXPENSE";
+                const isOver = row.totalVariance > 0 && ["EXPENSE", "DEDUCTION", "COST", "INVESTMENT"].includes(row.type);
                 const isUnder = row.totalVariance < 0 && row.type === "REVENUE";
 
                 return (

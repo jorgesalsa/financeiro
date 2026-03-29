@@ -22,7 +22,6 @@ import {
   UtensilsCrossed,
   Briefcase,
   ShoppingCart,
-  BookOpen,
   BookOpenCheck,
 } from "lucide-react";
 import Link from "next/link";
@@ -60,7 +59,6 @@ const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   alimentos_bebidas: UtensilsCrossed,
   servicos: Briefcase,
   comercio: ShoppingCart,
-  contabil: BookOpen,
 };
 
 const TEMPLATE_COLORS: Record<string, string> = {
@@ -68,7 +66,6 @@ const TEMPLATE_COLORS: Record<string, string> = {
   alimentos_bebidas: "border-orange-500 bg-orange-500/5",
   servicos: "border-purple-500 bg-purple-500/5",
   comercio: "border-green-500 bg-green-500/5",
-  contabil: "border-gray-400 bg-gray-500/5",
 };
 
 const TEMPLATE_COLORS_IDLE: Record<string, string> = {
@@ -76,7 +73,6 @@ const TEMPLATE_COLORS_IDLE: Record<string, string> = {
   alimentos_bebidas: "border-orange-500/20 hover:border-orange-500",
   servicos: "border-purple-500/20 hover:border-purple-500",
   comercio: "border-green-500/20 hover:border-green-500",
-  contabil: "border-gray-400/20 hover:border-gray-400",
 };
 
 const TEMPLATE_ICON_COLORS: Record<string, string> = {
@@ -84,7 +80,6 @@ const TEMPLATE_ICON_COLORS: Record<string, string> = {
   alimentos_bebidas: "text-orange-500",
   servicos: "text-purple-500",
   comercio: "text-green-500",
-  contabil: "text-gray-500",
 };
 
 export function OnboardingClient({
