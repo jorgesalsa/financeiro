@@ -55,7 +55,7 @@ export const navigation: NavGroup[] = [
   {
     label: "Cadastros",
     items: [
-      { title: "Plano de Contas", href: "/master-data/chart-of-accounts", icon: BookOpen },
+      { title: "Categorias", href: "/master-data/chart-of-accounts", icon: BookOpen },
       { title: "Fornecedores", href: "/master-data/suppliers", icon: Building2 },
       { title: "Clientes", href: "/master-data/customers", icon: Users },
       { title: "Centros de Custo", href: "/master-data/cost-centers", icon: Target },

@@ -66,7 +66,7 @@ export async function validateStagingEntry(
 
   const errors: string[] = [];
 
-  if (!entry.chartOfAccountId) errors.push("Conta contabil nao informada");
+  if (!entry.chartOfAccountId) errors.push("Categoria nao informada");
   if (!entry.bankAccountId) errors.push("Conta bancaria nao informada");
   if (!entry.date) errors.push("Data nao informada");
   if (!entry.description) errors.push("Descricao nao informada");

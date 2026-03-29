@@ -747,7 +747,7 @@ export async function applyChartTemplate(
       });
       if (entriesCount > 0) {
         throw new Error(
-          `Não é possível substituir o plano de contas: existem ${entriesCount} lançamento(s) vinculado(s). Remova os lançamentos primeiro.`
+          `Não é possível substituir as categorias: existem ${entriesCount} lançamento(s) vinculado(s). Remova os lançamentos primeiro.`
         );
       }
 

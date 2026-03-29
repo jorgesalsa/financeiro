@@ -43,8 +43,8 @@ export async function executeValidationRules(
       case "REQUIRED_ACCOUNT": {
         passed = !!entry.chartOfAccountId;
         message = passed
-          ? "Conta contábil informada"
-          : "Conta contábil é obrigatória para este tipo de lançamento";
+          ? "Categoria informada"
+          : "Categoria é obrigatória para este tipo de lançamento";
         break;
       }
 

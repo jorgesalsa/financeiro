@@ -8,8 +8,8 @@ export default async function ChartOfAccountsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Plano de Contas"
-        description="Gerencie o plano de contas da empresa."
+        title="Categorias"
+        description="Gerencie as categorias financeiras da empresa."
       />
       <ChartOfAccountsClient data={accounts} />
     </div>

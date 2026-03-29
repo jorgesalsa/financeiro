@@ -44,7 +44,7 @@ export async function createInternalTransfer(params: {
     orderBy: { code: "asc" },
   });
   if (!transferAccount) {
-    throw new Error("Nenhuma conta contábil ativa encontrada");
+    throw new Error("Nenhuma categoria ativa encontrada");
   }
 
   const result = await prisma.$transaction(async (tx) => {

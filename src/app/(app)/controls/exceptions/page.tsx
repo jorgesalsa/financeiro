@@ -79,7 +79,7 @@ export default async function ExceptionsPage() {
     exceptions.push({
       id: entry.id,
       type: "Classificacao ausente",
-      description: `Staging "${entry.description}" sem conta contabil atribuida`,
+      description: `Staging "${entry.description}" sem categoria atribuida`,
       severity: "MEDIUM",
       source: "staging",
       amount: Number(entry.amount),

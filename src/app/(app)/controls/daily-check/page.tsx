@@ -84,8 +84,8 @@ export default async function DailyCheckPage() {
   });
   if (noAccount > 0) {
     checks.push({
-      name: "Lancamentos sem conta contabil",
-      description: `${noAccount} lancamento(s) sem classificacao de conta contabil`,
+      name: "Lancamentos sem categoria",
+      description: `${noAccount} lancamento(s) sem categoria`,
       severity: "MEDIUM",
       count: noAccount,
     });

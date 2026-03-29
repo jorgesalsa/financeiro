@@ -338,7 +338,7 @@ export async function validateBatch(
         severity: "WARNING",
         field: "chart_of_account_code",
         code: "W009",
-        message: "Lancamento sem conta contabil atribuida",
+        message: "Lancamento sem categoria atribuida",
       });
     }
 

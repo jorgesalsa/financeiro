@@ -150,7 +150,7 @@ export default function ClassificationRulesClient({
                   <TableHead>Condicao</TableHead>
                   <TableHead>Acao</TableHead>
                   <TableHead className="w-20">Confianca</TableHead>
-                  <TableHead>Conta Contabil</TableHead>
+                  <TableHead>Categoria</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>

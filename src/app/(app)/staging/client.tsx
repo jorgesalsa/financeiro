@@ -362,7 +362,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     },
     {
       id: "chartOfAccount",
-      header: "Conta Contabil",
+      header: "Categoria",
       cell: ({ row }) =>
         row.original.chartOfAccount
           ? `${row.original.chartOfAccount.code} - ${row.original.chartOfAccount.name}`
@@ -567,7 +567,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
 
               {/* Lookups */}
               <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Conta Contabil</label>
+                <label className="text-sm font-medium">Categoria</label>
                 <select name="chartOfAccountId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.chartOfAccounts.map((c) => (
@@ -774,7 +774,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
 
               {/* Lookups */}
               <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Conta Contabil</label>
+                <label className="text-sm font-medium">Categoria</label>
                 <select
                   name="chartOfAccountId"
                   defaultValue={editing?.chartOfAccountId ?? ""}

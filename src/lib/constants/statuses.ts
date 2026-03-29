@@ -210,7 +210,7 @@ export const MIGRATION_BATCH_TYPE_LABELS: Record<MigrationBatchType, string> = {
 };
 
 export const MIGRATION_ENTITY_TYPE_LABELS: Record<MigrationEntityType, string> = {
-  CHART_OF_ACCOUNTS: "Plano de Contas",
+  CHART_OF_ACCOUNTS: "Categorias",
   COST_CENTERS: "Centros de Custo",
   SUPPLIERS: "Fornecedores",
   CUSTOMERS: "Clientes",
