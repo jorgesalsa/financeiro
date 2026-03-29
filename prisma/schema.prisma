@@ -879,6 +879,7 @@ model StagingEntry {
   externalId         String?
   migrationBatchId   String?
   migrationItemId    String?
+  pendingSettlement  Json?           // Settlement data to auto-settle on incorporation
   createdById        String
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt

@@ -41,6 +41,12 @@ export default async function StagingPage() {
   const serializedEntries = entries.map((entry) => ({
     id: entry.id,
     date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
+    dueDate: entry.dueDate
+      ? (entry.dueDate instanceof Date ? entry.dueDate.toISOString() : String(entry.dueDate))
+      : null,
+    competenceDate: entry.competenceDate
+      ? (entry.competenceDate instanceof Date ? entry.competenceDate.toISOString() : String(entry.competenceDate))
+      : null,
     description: entry.description,
     amount: typeof entry.amount === "object" && entry.amount !== null
       ? Number(entry.amount)
@@ -50,6 +56,11 @@ export default async function StagingPage() {
     status: entry.status,
     chartOfAccountId: entry.chartOfAccountId ?? null,
     costCenterId: entry.costCenterId ?? null,
+    bankAccountId: entry.bankAccountId ?? null,
+    supplierId: entry.supplierId ?? null,
+    customerId: entry.customerId ?? null,
+    paymentMethodId: entry.paymentMethodId ?? null,
+    pendingSettlement: (entry.pendingSettlement as any) ?? null,
     chartOfAccount: entry.chartOfAccount
       ? { code: entry.chartOfAccount.code, name: entry.chartOfAccount.name }
       : null,

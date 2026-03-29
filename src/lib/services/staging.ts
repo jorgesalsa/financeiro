@@ -140,7 +140,7 @@ export async function incorporateStagingEntries(
           tenantId,
           sequentialNumber: nextSeq,
           date: entry.date,
-          competenceDate: entry.date,
+          competenceDate: entry.competenceDate ?? entry.date,
           description: entry.description,
           amount: entry.amount,
           type: entry.type,
@@ -152,8 +152,8 @@ export async function incorporateStagingEntries(
           customerId: entry.customerId,
           bankAccountId: entry.bankAccountId!,
           paymentMethodId: entry.paymentMethodId,
-          documentNumber: null,
-          dueDate: entry.date,
+          documentNumber: entry.documentNumber ?? null,
+          dueDate: entry.dueDate ?? entry.date,
           stagingEntryId: entry.id,
           incorporatedById: userId,
           incorporatedAt: new Date(),
@@ -163,6 +163,64 @@ export async function incorporateStagingEntries(
           classificationStatus: entry.classificationStatus ?? "PENDING_CLASSIFICATION",
         },
       });
+
+      // Auto-settle if pendingSettlement exists
+      if (entry.pendingSettlement) {
+        const ps = entry.pendingSettlement as {
+          amount: number;
+          interestAmount?: number;
+          fineAmount?: number;
+          discountAmount?: number;
+          date: string;
+          bankAccountId: string;
+          paymentMethodId?: string | null;
+        };
+
+        await tx.settlement.create({
+          data: {
+            tenantId,
+            officialEntryId: created.id,
+            date: new Date(ps.date),
+            settlementDate: new Date(ps.date),
+            amount: ps.amount,
+            interestAmount: ps.interestAmount ?? 0,
+            fineAmount: ps.fineAmount ?? 0,
+            discountAmount: ps.discountAmount ?? 0,
+            bankAccountId: ps.bankAccountId,
+            paymentMethodId: ps.paymentMethodId ?? null,
+            settledById: userId,
+          },
+        });
+
+        const totalPaid = ps.amount;
+        const isFullyPaid = totalPaid >= Number(entry.amount) - 0.01;
+
+        await tx.officialEntry.update({
+          where: { id: created.id },
+          data: {
+            status: isFullyPaid ? "SETTLED" : "PARTIAL",
+            paidDate: isFullyPaid ? new Date(ps.date) : null,
+            paidAmount: totalPaid,
+            interestAmount: ps.interestAmount ?? 0,
+            fineAmount: ps.fineAmount ?? 0,
+            discountAmount: ps.discountAmount ?? 0,
+          },
+        });
+
+        // Update bank balance
+        const paymentAmount =
+          ps.amount +
+          (ps.interestAmount ?? 0) +
+          (ps.fineAmount ?? 0) -
+          (ps.discountAmount ?? 0);
+        const balanceChange =
+          entry.type === "DEBIT" ? -paymentAmount : paymentAmount;
+
+        await tx.bankAccount.update({
+          where: { id: ps.bankAccountId },
+          data: { currentBalance: { increment: balanceChange } },
+        });
+      }
 
       // RA02: State machine transition
       await tx.stagingEntry.update({

@@ -38,9 +38,11 @@ import { useRouter } from "next/navigation";
 
 type StagingEntry = {
   id: string;
-  date: string;           // ISO string (serialized from Date)
+  date: string;
+  dueDate: string | null;
+  competenceDate: string | null;
   description: string;
-  amount: number;          // serialized from Decimal
+  amount: number;
   transactionType: string;
   counterpartName: string | null;
   status: StagingStatus;
@@ -51,6 +53,19 @@ type StagingEntry = {
   bankAccount: { bankName: string; accountNumber: string } | null;
   chartOfAccountId: string | null;
   costCenterId: string | null;
+  bankAccountId: string | null;
+  supplierId: string | null;
+  customerId: string | null;
+  paymentMethodId: string | null;
+  pendingSettlement: {
+    amount: number;
+    interestAmount: number;
+    fineAmount: number;
+    discountAmount: number;
+    date: string;
+    bankAccountId: string;
+    paymentMethodId: string | null;
+  } | null;
 };
 
 type Lookups = {
@@ -74,6 +89,8 @@ const STATUS_TABS: { key: string; label: string }[] = [
   { key: "REJECTED", label: "Rejeitados" },
 ];
 
+const selectClass = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm";
+
 interface StagingClientProps {
   data: StagingEntry[];
   statusCounts: Record<string, number>;
@@ -92,6 +109,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [createIsPaid, setCreateIsPaid] = useState(false);
+  const [editIsPaid, setEditIsPaid] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   function showFeedback(type: "success" | "error", message: string) {
@@ -198,13 +217,30 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     });
   }
 
+  function buildSettlementData(formData: FormData) {
+    return {
+      amount: parseFloat(formData.get("settlement_amount") as string),
+      interestAmount: parseFloat(formData.get("settlement_interest") as string) || 0,
+      fineAmount: parseFloat(formData.get("settlement_fine") as string) || 0,
+      discountAmount: parseFloat(formData.get("settlement_discount") as string) || 0,
+      date: formData.get("settlement_date") as string,
+      bankAccountId: formData.get("settlement_bankAccountId") as string,
+      paymentMethodId: (formData.get("settlement_paymentMethodId") as string) || null,
+    };
+  }
+
   async function handleCreateSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const dueDateVal = formData.get("dueDate") as string;
+    const compDateVal = formData.get("competenceDate") as string;
+
     startTransition(async () => {
       try {
         await createStagingEntry({
           date: new Date(formData.get("date") as string),
+          dueDate: dueDateVal ? new Date(dueDateVal) : null,
+          competenceDate: compDateVal ? new Date(compDateVal) : null,
           description: formData.get("description") as string,
           amount: parseFloat(formData.get("amount") as string),
           type: formData.get("transactionType") as "CREDIT" | "DEBIT",
@@ -216,9 +252,11 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           customerId: (formData.get("customerId") as string) || null,
           paymentMethodId: (formData.get("paymentMethodId") as string) || null,
           notes: (formData.get("notes") as string) || null,
+          pendingSettlement: createIsPaid ? buildSettlementData(formData) : null,
         });
         showFeedback("success", "Lancamento criado com sucesso!");
         setCreateOpen(false);
+        setCreateIsPaid(false);
         router.refresh();
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao criar lancamento");
@@ -230,10 +268,15 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     e.preventDefault();
     if (!editing) return;
     const formData = new FormData(e.currentTarget);
+    const dueDateVal = formData.get("dueDate") as string;
+    const compDateVal = formData.get("competenceDate") as string;
+
     startTransition(async () => {
       try {
         await updateStagingEntry(editing.id, {
           date: new Date(formData.get("date") as string),
+          dueDate: dueDateVal ? new Date(dueDateVal) : null,
+          competenceDate: compDateVal ? new Date(compDateVal) : null,
           description: formData.get("description") as string,
           amount: parseFloat(formData.get("amount") as string),
           type: formData.get("transactionType") as "CREDIT" | "DEBIT",
@@ -245,10 +288,12 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           customerId: (formData.get("customerId") as string) || null,
           paymentMethodId: (formData.get("paymentMethodId") as string) || null,
           notes: (formData.get("notes") as string) || null,
+          pendingSettlement: editIsPaid ? buildSettlementData(formData) : null,
         });
         showFeedback("success", "Lancamento atualizado com sucesso!");
         setEditOpen(false);
         setEditing(null);
+        setEditIsPaid(false);
         router.refresh();
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao atualizar lancamento");
@@ -278,8 +323,14 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     },
     {
       accessorKey: "date",
-      header: "Data",
+      header: "Emissao",
       cell: ({ row }) => formatDate(row.original.date),
+    },
+    {
+      accessorKey: "dueDate",
+      header: "Vencimento",
+      cell: ({ row }) =>
+        row.original.dueDate ? formatDate(row.original.dueDate) : "—",
     },
     {
       accessorKey: "description",
@@ -325,6 +376,14 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           : "—",
     },
     {
+      id: "pago",
+      header: "Pago",
+      cell: ({ row }) =>
+        row.original.pendingSettlement ? (
+          <Badge className="bg-green-100 text-green-800">Sim</Badge>
+        ) : null,
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => (
@@ -347,6 +406,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 size="icon"
                 onClick={() => {
                   setEditing(entry);
+                  setEditIsPaid(!!entry.pendingSettlement);
                   setEditOpen(true);
                 }}
                 title="Editar"
@@ -424,7 +484,10 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
       {/* Bulk actions */}
       <div className="flex items-center gap-2">
         <Button
-          onClick={() => setCreateOpen(true)}
+          onClick={() => {
+            setCreateIsPaid(false);
+            setCreateOpen(true);
+          }}
           size="sm"
         >
           <Plus className="mr-2 h-4 w-4" /> Novo Lancamento
@@ -462,7 +525,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
         searchPlaceholder="Buscar lancamento..."
       />
 
-      {/* Create dialog */}
+      {/* ── Create dialog ── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -470,21 +533,28 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           </DialogHeader>
           <form onSubmit={handleCreateSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {/* Dates */}
               <div>
-                <label className="text-sm font-medium">Data *</label>
+                <label className="text-sm font-medium">Data de Emissao *</label>
                 <Input name="date" type="date" required />
               </div>
               <div>
+                <label className="text-sm font-medium">Data de Vencimento *</label>
+                <Input name="dueDate" type="date" required />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data de Entrada</label>
+                <Input name="competenceDate" type="date" />
+              </div>
+              <div>
                 <label className="text-sm font-medium">Tipo *</label>
-                <select
-                  name="transactionType"
-                  required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="transactionType" required className={selectClass}>
                   <option value="DEBIT">Conta a Pagar</option>
                   <option value="CREDIT">Conta a Receber</option>
                 </select>
               </div>
+
+              {/* Description + Amount */}
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Descricao *</label>
                 <Input name="description" required />
@@ -493,12 +563,11 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Valor *</label>
                 <Input name="amount" type="number" step="0.01" required />
               </div>
+
+              {/* Lookups */}
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Conta Contabil</label>
-                <select
-                  name="chartOfAccountId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="chartOfAccountId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.chartOfAccounts.map((c) => (
                     <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
@@ -507,10 +576,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Centro de Custo</label>
-                <select
-                  name="costCenterId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="costCenterId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.costCenters.map((c) => (
                     <option key={c.id} value={c.id}>{c.code} - {c.name}</option>
@@ -519,10 +585,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Conta Bancaria</label>
-                <select
-                  name="bankAccountId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="bankAccountId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.bankAccounts.map((b) => (
                     <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
@@ -531,10 +594,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Fornecedor</label>
-                <select
-                  name="supplierId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="supplierId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.suppliers.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
@@ -543,10 +603,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Cliente</label>
-                <select
-                  name="customerId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="customerId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.customers.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -555,10 +612,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
               </div>
               <div>
                 <label className="text-sm font-medium">Forma de Pagamento</label>
-                <select
-                  name="paymentMethodId"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
+                <select name="paymentMethodId" className={selectClass}>
                   <option value="">Selecione...</option>
                   {lookups.paymentMethods.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
@@ -569,6 +623,62 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Observacoes</label>
                 <Input name="notes" placeholder="Notas adicionais..." />
               </div>
+
+              {/* ── Pago toggle ── */}
+              <div className="sm:col-span-2 border-t pt-4 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={createIsPaid}
+                    onChange={(e) => setCreateIsPaid(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium">Marcar como Pago</span>
+                </label>
+              </div>
+
+              {createIsPaid && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium">Valor da Baixa *</label>
+                    <Input name="settlement_amount" type="number" step="0.01" required />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Data de Pagamento *</label>
+                    <Input name="settlement_date" type="date" required />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Juros</label>
+                    <Input name="settlement_interest" type="number" step="0.01" defaultValue="0" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Multa</label>
+                    <Input name="settlement_fine" type="number" step="0.01" defaultValue="0" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Desconto</label>
+                    <Input name="settlement_discount" type="number" step="0.01" defaultValue="0" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Conta Bancaria (Pgto) *</label>
+                    <select name="settlement_bankAccountId" required className={selectClass}>
+                      <option value="">Selecione...</option>
+                      {lookups.bankAccounts.map((b) => (
+                        <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Forma de Pagamento (Pgto)</label>
+                    <select name="settlement_paymentMethodId" className={selectClass}>
+                      <option value="">Selecione...</option>
+                      {lookups.paymentMethods.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -582,7 +692,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog */}
+      {/* ── Edit dialog ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -590,17 +700,41 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {/* Dates */}
               <div>
-                <label className="text-sm font-medium">Data *</label>
+                <label className="text-sm font-medium">Data de Emissao *</label>
                 <Input
                   name="date"
                   type="date"
                   defaultValue={
-                    editing
-                      ? new Date(editing.date).toISOString().split("T")[0]
+                    editing ? new Date(editing.date).toISOString().split("T")[0] : ""
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data de Vencimento *</label>
+                <Input
+                  name="dueDate"
+                  type="date"
+                  defaultValue={
+                    editing?.dueDate
+                      ? new Date(editing.dueDate).toISOString().split("T")[0]
                       : ""
                   }
                   required
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Data de Entrada</label>
+                <Input
+                  name="competenceDate"
+                  type="date"
+                  defaultValue={
+                    editing?.competenceDate
+                      ? new Date(editing.competenceDate).toISOString().split("T")[0]
+                      : ""
+                  }
                 />
               </div>
               <div>
@@ -609,12 +743,14 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   name="transactionType"
                   defaultValue={editing?.transactionType ?? "DEBIT"}
                   required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className={selectClass}
                 >
                   <option value="DEBIT">Conta a Pagar</option>
                   <option value="CREDIT">Conta a Receber</option>
                 </select>
               </div>
+
+              {/* Description + Amount */}
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Descricao *</label>
                 <Input name="description" defaultValue={editing?.description ?? ""} required />
@@ -629,12 +765,14 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                   required
                 />
               </div>
+
+              {/* Lookups */}
               <div className="sm:col-span-2">
                 <label className="text-sm font-medium">Conta Contabil</label>
                 <select
                   name="chartOfAccountId"
                   defaultValue={editing?.chartOfAccountId ?? ""}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.chartOfAccounts.map((c) => (
@@ -647,7 +785,7 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <select
                   name="costCenterId"
                   defaultValue={editing?.costCenterId ?? ""}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.costCenters.map((c) => (
@@ -659,8 +797,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Conta Bancaria</label>
                 <select
                   name="bankAccountId"
-                  defaultValue=""
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  defaultValue={editing?.bankAccountId ?? ""}
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.bankAccounts.map((b) => (
@@ -672,8 +810,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Fornecedor</label>
                 <select
                   name="supplierId"
-                  defaultValue=""
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  defaultValue={editing?.supplierId ?? ""}
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.suppliers.map((s) => (
@@ -685,8 +823,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Cliente</label>
                 <select
                   name="customerId"
-                  defaultValue=""
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  defaultValue={editing?.customerId ?? ""}
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.customers.map((c) => (
@@ -698,8 +836,8 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Forma de Pagamento</label>
                 <select
                   name="paymentMethodId"
-                  defaultValue=""
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  defaultValue={editing?.paymentMethodId ?? ""}
+                  className={selectClass}
                 >
                   <option value="">Selecione...</option>
                   {lookups.paymentMethods.map((p) => (
@@ -711,6 +849,97 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
                 <label className="text-sm font-medium">Observacoes</label>
                 <Input name="notes" placeholder="Notas adicionais..." />
               </div>
+
+              {/* ── Pago toggle ── */}
+              <div className="sm:col-span-2 border-t pt-4 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editIsPaid}
+                    onChange={(e) => setEditIsPaid(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium">Marcar como Pago</span>
+                </label>
+              </div>
+
+              {editIsPaid && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium">Valor da Baixa *</label>
+                    <Input
+                      name="settlement_amount"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editing?.pendingSettlement?.amount ?? editing?.amount ?? 0}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Data de Pagamento *</label>
+                    <Input
+                      name="settlement_date"
+                      type="date"
+                      defaultValue={editing?.pendingSettlement?.date ?? ""}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Juros</label>
+                    <Input
+                      name="settlement_interest"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editing?.pendingSettlement?.interestAmount ?? 0}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Multa</label>
+                    <Input
+                      name="settlement_fine"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editing?.pendingSettlement?.fineAmount ?? 0}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Desconto</label>
+                    <Input
+                      name="settlement_discount"
+                      type="number"
+                      step="0.01"
+                      defaultValue={editing?.pendingSettlement?.discountAmount ?? 0}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Conta Bancaria (Pgto) *</label>
+                    <select
+                      name="settlement_bankAccountId"
+                      defaultValue={editing?.pendingSettlement?.bankAccountId ?? ""}
+                      required
+                      className={selectClass}
+                    >
+                      <option value="">Selecione...</option>
+                      {lookups.bankAccounts.map((b) => (
+                        <option key={b.id} value={b.id}>{b.bankName} - {b.accountNumber}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Forma de Pagamento (Pgto)</label>
+                    <select
+                      name="settlement_paymentMethodId"
+                      defaultValue={editing?.pendingSettlement?.paymentMethodId ?? ""}
+                      className={selectClass}
+                    >
+                      <option value="">Selecione...</option>
+                      {lookups.paymentMethods.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
