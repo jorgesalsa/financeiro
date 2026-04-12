@@ -90,6 +90,12 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onOpenSearch]);
 
+  // Collect all nav hrefs to find the best (most specific) active match
+  const allHrefs = navigation.flatMap((g) => g.items.map((i) => i.href));
+  const activeHref = allHrefs
+    .filter((h) => pathname === h || pathname.startsWith(h + "/"))
+    .sort((a, b) => b.length - a.length)[0];
+
   function renderSidebarContent(collapsed: boolean) {
     return (
       <>
@@ -190,9 +196,7 @@ export function Sidebar({
               <div className={cn("space-y-0.5", collapsed && "space-y-1")}>
                 {group.items.map((item) => {
                   const Icon = item.icon;
-                  const isActive =
-                    pathname === item.href ||
-                    pathname.startsWith(item.href + "/");
+                  const isActive = item.href === activeHref;
 
                   return (
                     <Link
