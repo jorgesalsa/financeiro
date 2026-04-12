@@ -34,8 +34,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-8 rounded-lg border border-border bg-card p-8 shadow-lg">
         <div className="text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="JSA" className="mx-auto h-10 mb-4" />
           <h1 className="text-2xl font-bold text-foreground">
-            Sistema Financeiro
+            FINANCE ERP
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Entre com suas credenciais

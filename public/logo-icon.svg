@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" fill="none">
+  <!-- Double chevrons -->
+  <path d="M8 10 L23 25 L8 40" stroke="#6366f1" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M24 10 L39 25 L24 40" stroke="#818cf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

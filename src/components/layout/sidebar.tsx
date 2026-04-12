@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navigation } from "@/lib/constants/navigation";
@@ -100,14 +101,29 @@ export function Sidebar({
           )}
         >
           {collapsed ? (
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-soft">
-              SF
-            </div>
+            <Image
+              src="/logo-icon.svg"
+              alt="JSA"
+              width={36}
+              height={36}
+              className="shrink-0"
+              priority
+            />
           ) : (
             <div className="min-w-0 flex-1">
-              <h1 className="text-[15px] font-bold bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
-                Sistema Financeiro
-              </h1>
+              <div className="flex items-center gap-2.5 mb-0.5">
+                <Image
+                  src="/logo-icon.svg"
+                  alt="JSA"
+                  width={28}
+                  height={28}
+                  className="shrink-0"
+                  priority
+                />
+                <h1 className="text-[15px] font-bold tracking-wide bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">
+                  FINANCE ERP
+                </h1>
+              </div>
               <TenantSwitcher
                 currentTenantId={currentTenantId}
                 currentTenantName={tenantName}

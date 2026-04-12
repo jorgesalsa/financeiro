@@ -3,8 +3,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sistema Financeiro",
-  description: "Sistema Financeiro Gerencial SaaS",
+  title: "FINANCE ERP",
+  description: "FINANCE ERP — Sistema Financeiro Gerencial SaaS",
 };
 
 export default function RootLayout({
