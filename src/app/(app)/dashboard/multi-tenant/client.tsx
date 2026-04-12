@@ -60,9 +60,9 @@ function roleLabel(role: string) {
 
 function cardBorderColor(tenant: TenantInfo) {
   if (tenant.overdueCount > 0 || tenant.exceptions.total > 0)
-    return "border-red-400";
-  if (tenant.pendingStaging > 0) return "border-yellow-400";
-  return "border-emerald-400";
+    return "border-l-red-400";
+  if (tenant.pendingStaging > 0) return "border-l-yellow-400";
+  return "border-l-emerald-400";
 }
 
 export function MultiTenantDashboardClient({
@@ -84,99 +84,37 @@ export function MultiTenantDashboardClient({
   }
 
   return (
-    <div className="space-y-6 min-w-0">
-      {/* Summary row */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950">
-                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total empresas</p>
-                <p className="text-xl font-bold">{totalEmpresas}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950">
-                <FileCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Total pendencias staging
-                </p>
-                <p className="text-xl font-bold">{totalPendencias}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 dark:bg-red-950">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Total contas vencidas
-                </p>
-                <p className="text-xl font-bold">{totalVencidas}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={cn(
-            totalExcecoes > 0 && "ring-1 ring-amber-400 dark:ring-amber-600"
-          )}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-lg",
-                  totalExcecoes > 0
-                    ? "bg-amber-50 dark:bg-amber-950"
-                    : "bg-emerald-50 dark:bg-emerald-950"
-                )}
-              >
-                <ShieldAlert
-                  className={cn(
-                    "h-5 w-5",
-                    totalExcecoes > 0
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400"
-                  )}
-                />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">
-                  Total excecoes
-                </p>
-                <p
-                  className={cn(
-                    "text-xl font-bold",
-                    totalExcecoes > 0 &&
-                      "text-amber-600 dark:text-amber-400"
-                  )}
-                >
-                  {totalExcecoes}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="space-y-4 min-w-0">
+      {/* Summary row — uniform gap-4, labels truncated to avoid wrap */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <SummaryCard
+          icon={<Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+          iconBg="bg-blue-50 dark:bg-blue-950"
+          label="Empresas"
+          value={totalEmpresas}
+        />
+        <SummaryCard
+          icon={<FileCheck className="h-5 w-5 text-orange-600 dark:text-orange-400" />}
+          iconBg="bg-orange-50 dark:bg-orange-950"
+          label="Staging pendente"
+          value={totalPendencias}
+        />
+        <SummaryCard
+          icon={<AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />}
+          iconBg="bg-red-50 dark:bg-red-950"
+          label="Contas vencidas"
+          value={totalVencidas}
+        />
+        <SummaryCard
+          icon={<ShieldAlert className={cn("h-5 w-5", totalExcecoes > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")} />}
+          iconBg={totalExcecoes > 0 ? "bg-amber-50 dark:bg-amber-950" : "bg-emerald-50 dark:bg-emerald-950"}
+          label="Exceções"
+          value={totalExcecoes}
+          highlight={totalExcecoes > 0}
+        />
       </div>
 
-      {/* Company cards grid */}
+      {/* Company cards — same gap-4 */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         {tenants.map((tenant) => (
           <Card
@@ -187,9 +125,9 @@ export function MultiTenantDashboardClient({
               tenant.isDefault && "ring-2 ring-primary/30"
             )}
           >
-            <CardHeader className="pb-2">
+            <CardHeader className="p-4 pb-2">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <CardTitle className="flex items-center gap-2 min-w-0">
                     <span className="truncate">{tenant.tenantName}</span>
                     {tenant.isDefault && (
@@ -207,7 +145,8 @@ export function MultiTenantDashboardClient({
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
+
+            <CardContent className="p-4 pt-0">
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-3">
                 <span
                   className={cn(
@@ -217,8 +156,8 @@ export function MultiTenantDashboardClient({
                       : "text-muted-foreground"
                   )}
                 >
-                  <FileCheck className="h-3.5 w-3.5" />
-                  {tenant.pendingStaging} pendencias no staging
+                  <FileCheck className="h-3.5 w-3.5 shrink-0" />
+                  {tenant.pendingStaging} pendencias
                 </span>
                 <span
                   className={cn(
@@ -228,11 +167,11 @@ export function MultiTenantDashboardClient({
                       : "text-muted-foreground"
                   )}
                 >
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  {tenant.overdueCount} contas vencidas
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {tenant.overdueCount} vencidas
                 </span>
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <Users className="h-3.5 w-3.5" />
+                  <Users className="h-3.5 w-3.5 shrink-0" />
                   {tenant.memberCount} membros
                 </span>
               </div>
@@ -241,28 +180,28 @@ export function MultiTenantDashboardClient({
               {tenant.exceptions.total > 0 && (
                 <div className="mb-3 rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 p-2.5">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                     <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
-                      {tenant.exceptions.total} excecoes encontradas
+                      {tenant.exceptions.total} exceções
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-amber-700 dark:text-amber-300">
                     {tenant.exceptions.unclassified > 0 && (
                       <span className="flex items-center gap-1">
-                        <Tag className="h-3 w-3" />
-                        {tenant.exceptions.unclassified} sem classificacao
+                        <Tag className="h-3 w-3 shrink-0" />
+                        {tenant.exceptions.unclassified} sem classif.
                       </span>
                     )}
                     {tenant.exceptions.staleStaging > 0 && (
                       <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3 shrink-0" />
                         {tenant.exceptions.staleStaging} staging parado
                       </span>
                     )}
                     {tenant.exceptions.noCostCenter > 0 && (
                       <span className="flex items-center gap-1">
-                        <Layers className="h-3 w-3" />
-                        {tenant.exceptions.noCostCenter} sem centro de custo
+                        <Layers className="h-3 w-3 shrink-0" />
+                        {tenant.exceptions.noCostCenter} sem CC
                       </span>
                     )}
                   </div>
@@ -286,5 +225,50 @@ export function MultiTenantDashboardClient({
         ))}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Extracted KPI summary card – uniform height                        */
+/* ------------------------------------------------------------------ */
+function SummaryCard({
+  icon,
+  iconBg,
+  label,
+  value,
+  highlight,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <Card className={cn(highlight && "ring-1 ring-amber-400 dark:ring-amber-600")}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+              iconBg
+            )}
+          >
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground truncate">{label}</p>
+            <p
+              className={cn(
+                "text-xl font-bold",
+                highlight && "text-amber-600 dark:text-amber-400"
+              )}
+            >
+              {value}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
