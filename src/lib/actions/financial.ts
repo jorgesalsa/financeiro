@@ -7,6 +7,7 @@ import { settleEntry } from "@/lib/services/settlement";
 import { generateInstallments } from "@/lib/services/installment";
 import { settlementSchema, installmentSchema } from "@/lib/validations/financial";
 import { createAuditLog } from "@/lib/utils/audit";
+import { normalizePagination, buildPaginatedResult, type PaginationParams } from "@/lib/utils/pagination";
 import type { Prisma } from "@/generated/prisma";
 
 export async function listOfficialEntries(filters?: {
@@ -14,8 +15,10 @@ export async function listOfficialEntries(filters?: {
   status?: string;
   startDate?: string;
   endDate?: string;
+  pagination?: PaginationParams;
 }) {
   const user = await getCurrentUser();
+  const { skip, take, page, pageSize } = normalizePagination(filters?.pagination);
 
   const where: Prisma.OfficialEntryWhereInput = { tenantId: user.tenantId };
   if (filters?.category) where.category = filters.category as any;
@@ -26,19 +29,25 @@ export async function listOfficialEntries(filters?: {
     if (filters?.endDate) where.date.lte = new Date(filters.endDate);
   }
 
-  return prisma.officialEntry.findMany({
-    where,
-    orderBy: { date: "desc" },
-    include: {
-      chartOfAccount: { select: { code: true, name: true } },
-      costCenter: { select: { code: true, name: true } },
-      supplier: { select: { name: true } },
-      customer: { select: { name: true } },
-      bankAccount: { select: { bankName: true } },
-      settlements: { select: { id: true, amount: true, date: true } },
-    },
-    take: 200,
-  });
+  const [data, total] = await Promise.all([
+    prisma.officialEntry.findMany({
+      where,
+      orderBy: { date: "desc" },
+      include: {
+        chartOfAccount: { select: { code: true, name: true } },
+        costCenter: { select: { code: true, name: true } },
+        supplier: { select: { name: true } },
+        customer: { select: { name: true } },
+        bankAccount: { select: { bankName: true } },
+        settlements: { select: { id: true, amount: true, date: true } },
+      },
+      skip,
+      take,
+    }),
+    prisma.officialEntry.count({ where }),
+  ]);
+
+  return buildPaginatedResult(data, total, page, pageSize);
 }
 
 export async function settleOfficialEntry(rawData: unknown) {
@@ -67,6 +76,61 @@ export async function settleOfficialEntry(rawData: unknown) {
   revalidatePath("/financial/entries");
   revalidatePath("/financial/payables");
   revalidatePath("/financial/receivables");
+  return result;
+}
+
+/**
+ * Quick-pay: settles an entry for its full remaining amount.
+ * Uses today's date, the first active bank account, and no fees/discounts.
+ */
+export async function quickPayEntry(entryId: string) {
+  const user = await getCurrentUser();
+
+  const entry = await prisma.officialEntry.findFirst({
+    where: { id: entryId, tenantId: user.tenantId },
+    select: { id: true, amount: true, paidAmount: true, status: true },
+  });
+
+  if (!entry) throw new Error("Lancamento nao encontrado");
+  if (entry.status === "SETTLED" || entry.status === "CANCELLED") {
+    throw new Error("Lancamento ja esta quitado ou cancelado");
+  }
+
+  const remaining = Number(entry.amount) - Number(entry.paidAmount ?? 0);
+  if (remaining <= 0) throw new Error("Nao ha saldo a pagar");
+
+  const bankAccount = await prisma.bankAccount.findFirst({
+    where: { tenantId: user.tenantId, active: true },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  if (!bankAccount) {
+    throw new Error("Nenhuma conta bancaria ativa. Cadastre uma conta antes de efetuar pagamentos.");
+  }
+
+  const today = new Date();
+
+  const result = await settleEntry({
+    tenantId: user.tenantId,
+    officialEntryId: entryId,
+    date: today,
+    settlementDate: today,
+    amount: remaining,
+    interestAmount: 0,
+    fineAmount: 0,
+    discountAmount: 0,
+    bankAccountId: bankAccount.id,
+    paymentMethodId: null,
+    document: null,
+    notes: "Pagamento rapido",
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/financial/payables");
+  revalidatePath("/financial/receivables");
+  revalidatePath("/financial/entries");
   return result;
 }
 

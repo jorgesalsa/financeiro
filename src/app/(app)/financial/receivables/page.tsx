@@ -1,25 +1,23 @@
-import prisma from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth-utils";
+import { listOfficialEntries } from "@/lib/actions/financial";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReceivablesClient } from "./client";
 
-export default async function ReceivablesPage() {
-  const user = await getCurrentUser();
+export default async function ReceivablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; status?: string }>;
+}) {
+  const params = await searchParams;
+  const page = parseInt(params.page ?? "1", 10) || 1;
+  const statusFilter = params.status && params.status !== "ALL" ? params.status : undefined;
 
-  const entries = await prisma.officialEntry.findMany({
-    where: {
-      tenantId: user.tenantId,
-      category: "RECEIVABLE",
-    },
-    orderBy: { dueDate: "asc" },
-    include: {
-      chartOfAccount: { select: { code: true, name: true } },
-      customer: { select: { name: true } },
-    },
-    take: 500,
+  const result = await listOfficialEntries({
+    category: "RECEIVABLE",
+    status: statusFilter,
+    pagination: { page, pageSize: 50 },
   });
 
-  const serialized = entries.map((e) => ({
+  const serialized = result.data.map((e) => ({
     id: e.id,
     dueDate: e.dueDate ? e.dueDate.toISOString() : null,
     description: e.description,
@@ -38,7 +36,15 @@ export default async function ReceivablesPage() {
         title="Contas a Receber"
         description="Lancamentos de contas a receber"
       />
-      <ReceivablesClient data={serialized} />
+      <ReceivablesClient
+        data={serialized}
+        pagination={{
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
+        }}
+      />
     </div>
   );
 }

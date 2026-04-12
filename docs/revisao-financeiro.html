@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisao Completa — Logica Financeira</title>
+<style>
+  :root { --bg: #f8fafc; --card: #fff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b; --red: #ef4444; --amber: #f59e0b; --green: #22c55e; --blue: #3b82f6; --purple: #8b5cf6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 24px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  h2 { font-size: 20px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 16px; margin: 20px 0 10px; color: var(--blue); }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card-red { border-left: 4px solid var(--red); }
+  .card-amber { border-left: 4px solid var(--amber); }
+  .card-green { border-left: 4px solid var(--green); }
+  .card-blue { border-left: 4px solid var(--blue); }
+  .card-purple { border-left: 4px solid var(--purple); }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th, td { padding: 8px 12px; text-align: left; border: 1px solid var(--border); }
+  th { background: #f1f5f9; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tr:nth-child(even) { background: #f8fafc; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-red { background: #fef2f2; color: #dc2626; }
+  .tag-amber { background: #fffbeb; color: #d97706; }
+  .tag-green { background: #f0fdf4; color: #16a34a; }
+  .tag-blue { background: #eff6ff; color: #2563eb; }
+  .tag-purple { background: #f5f3ff; color: #7c3aed; }
+  .tag-gray { background: #f1f5f9; color: #475569; }
+  .flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .flow-step { background: var(--card); border: 2px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 500; min-width: 120px; text-align: center; }
+  .flow-step small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .flow-arrow { color: var(--muted); font-size: 20px; font-weight: bold; }
+  .flow-step.active { border-color: var(--blue); background: #eff6ff; }
+  .flow-step.error { border-color: var(--red); background: #fef2f2; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  code { background: #f1f5f9; padding: 1px 6px; border-radius: 4px; font-size: 12px; font-family: 'SF Mono', Menlo, monospace; }
+  .highlight { background: #fef9c3; padding: 2px 4px; }
+  .section-nav { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
+  .section-nav a { color: var(--blue); text-decoration: none; font-size: 13px; margin-right: 16px; display: inline-block; margin-bottom: 4px; }
+  .section-nav a:hover { text-decoration: underline; }
+  .bug-id { font-weight: 700; color: var(--red); margin-right: 6px; }
+  .cross-ref { font-style: italic; color: var(--purple); font-size: 12px; }
+  .formula { background: #f1f5f9; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 13px; margin: 8px 0; border-left: 3px solid var(--blue); }
+  details { margin: 8px 0; }
+  details summary { cursor: pointer; font-weight: 600; font-size: 14px; padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<h1>Revisao Completa — Logica Financeira</h1>
+<p class="subtitle">Sistema Financeiro Multi-Tenant BPO &bull; Analise cruzada de fluxos, entidades e regras de negocio &bull; Gerado em 27/03/2026</p>
+
+<div class="section-nav">
+  <strong>Indice:</strong><br>
+  <a href="#sec1">1. Visao Geral do Fluxo</a>
+  <a href="#sec2">2. Entidades e Campos</a>
+  <a href="#sec3">3. Staging &rarr; Oficial (Incorporacao)</a>
+  <a href="#sec4">4. Baixa (Settlement)</a>
+  <a href="#sec5">5. Parcelamento</a>
+  <a href="#sec6">6. Conciliacao Bancaria</a>
+  <a href="#sec7">7. Recorrentes (Cron)</a>
+  <a href="#sec8">8. Overdue (Cron)</a>
+  <a href="#sec9">9. Classificacao Automatica</a>
+  <a href="#sec10">10. Importacoes</a>
+  <a href="#sec11">11. Paginas e Operacoes</a>
+  <a href="#sec12">12. Mapa de Bugs</a>
+  <a href="#sec13">13. Melhorias Sugeridas</a>
+  <a href="#sec14">14. Cruzamento de Campos</a>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec1">1. Visao Geral do Fluxo Financeiro</h2>
+<!-- ============================================ -->
+
+<div class="card card-blue">
+<h3>Fluxo Principal: Importacao ate Conciliacao</h3>
+<div class="flow">
+  <div class="flow-step"><strong>Importacao</strong><small>Arquivo / API</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>ImportBatch</strong><small>Lote registrado</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step active"><strong>StagingEntry</strong><small>PENDING</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Auto-Classificar</strong><small>ClassificationRule</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step active"><strong>StagingEntry</strong><small>AUTO_CLASSIFIED</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Validar</strong><small>Usuario confere</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step active"><strong>StagingEntry</strong><small>VALIDATED</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step" style="border-color: var(--green); background: #f0fdf4;"><strong>Incorporar</strong><small>Cria OfficialEntry</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step active"><strong>OfficialEntry</strong><small>OPEN</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Baixa</strong><small>Settlement</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step active"><strong>OfficialEntry</strong><small>SETTLED</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Conciliacao</strong><small>Match bancario</small></div>
+</div>
+
+<h3>Fontes de Dados (6 origens)</h3>
+<table>
+  <tr><th>Origem</th><th>Formato</th><th>StagingSource</th><th>Registros Criados</th></tr>
+  <tr><td>Extrato Bancario</td><td>OFX / CSV / TXT</td><td><code>IMPORT_BANK_STATEMENT</code></td><td>BankStatementLine + StagingEntry</td></tr>
+  <tr><td>Transacoes Cartao</td><td>CSV / XLSX</td><td><code>IMPORT_CARD</code></td><td>CardTransaction + StagingEntry</td></tr>
+  <tr><td>Notas Fiscais (arquivo)</td><td>CSV / XLSX / XML</td><td><code>IMPORT_TAX_INVOICE</code></td><td>TaxInvoiceLine + StagingEntry</td></tr>
+  <tr><td>Notas de Compra</td><td>CSV / XLSX</td><td><code>IMPORT_PURCHASE_INVOICE</code></td><td>PurchaseInvoice + StagingEntry</td></tr>
+  <tr><td>Pluggy (Open Banking)</td><td>API JSON</td><td><code>IMPORT_PLUGGY</code></td><td>BankStatementLine + StagingEntry</td></tr>
+  <tr><td>QIVE (NFe SEFAZ)</td><td>API XML</td><td><code>IMPORT_QIVE</code></td><td>TaxInvoiceLine + StagingEntry</td></tr>
+  <tr><td>Manual (usuario)</td><td>Formulario</td><td><code>MANUAL</code></td><td>StagingEntry apenas</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec2">2. Entidades Financeiras e Campos</h2>
+<!-- ============================================ -->
+
+<div class="card">
+<h3>Enums do Sistema</h3>
+<div class="grid-2">
+<table>
+  <tr><th colspan="2">EntryStatus (Status do Lancamento Oficial)</th></tr>
+  <tr><td><span class="tag tag-blue">OPEN</span></td><td>Em aberto, aguardando pagamento</td></tr>
+  <tr><td><span class="tag tag-amber">PARTIAL</span></td><td>Parcialmente pago</td></tr>
+  <tr><td><span class="tag tag-green">SETTLED</span></td><td>Totalmente liquidado</td></tr>
+  <tr><td><span class="tag tag-gray">CANCELLED</span></td><td>Cancelado</td></tr>
+</table>
+<table>
+  <tr><th colspan="2">StagingStatus (Status do Staging)</th></tr>
+  <tr><td><span class="tag tag-amber">PENDING</span></td><td>Recem criado, aguardando classificacao</td></tr>
+  <tr><td><span class="tag tag-blue">AUTO_CLASSIFIED</span></td><td>Classificado automaticamente por regra</td></tr>
+  <tr><td><span class="tag tag-purple">VALIDATED</span></td><td>Validado pelo usuario</td></tr>
+  <tr><td><span class="tag tag-green">INCORPORATED</span></td><td>Convertido em OfficialEntry</td></tr>
+  <tr><td><span class="tag tag-red">REJECTED</span></td><td>Rejeitado com motivo</td></tr>
+</table>
+</div>
+<div class="grid-2">
+<table>
+  <tr><th colspan="2">EntryCategory (Categoria)</th></tr>
+  <tr><td><span class="tag tag-red">PAYABLE</span></td><td>Conta a pagar (saida)</td></tr>
+  <tr><td><span class="tag tag-green">RECEIVABLE</span></td><td>Conta a receber (entrada)</td></tr>
+  <tr><td><span class="tag tag-blue">TRANSFER</span></td><td>Transferencia entre contas</td></tr>
+  <tr><td><span class="tag tag-gray">ADJUSTMENT</span></td><td>Ajuste contabil</td></tr>
+</table>
+<table>
+  <tr><th colspan="2">TransactionType (Tipo Transacao)</th></tr>
+  <tr><td><span class="tag tag-red">DEBIT</span></td><td>Debito (saida de dinheiro)</td></tr>
+  <tr><td><span class="tag tag-green">CREDIT</span></td><td>Credito (entrada de dinheiro)</td></tr>
+</table>
+</div>
+</div>
+
+<div class="card">
+<h3>StagingEntry — Campos</h3>
+<table>
+  <tr><th>Campo</th><th>Tipo</th><th>Obrigatorio</th><th>Descricao</th><th>Usado na Incorporacao?</th></tr>
+  <tr><td><code>id</code></td><td>String (cuid)</td><td>Auto</td><td>Identificador unico</td><td>Ref via stagingEntryId</td></tr>
+  <tr><td><code>tenantId</code></td><td>String</td><td>Sim</td><td>Isolamento multi-tenant</td><td>Sim</td></tr>
+  <tr><td><code>source</code></td><td>StagingSource</td><td>Sim</td><td>Origem do dado (MANUAL, IMPORT_*)</td><td>Nao</td></tr>
+  <tr><td><code>status</code></td><td>StagingStatus</td><td>Sim</td><td>Estado atual do staging</td><td>Deve ser VALIDATED</td></tr>
+  <tr><td><code>date</code></td><td>DateTime</td><td>Sim</td><td>Data da transacao</td><td>Sim &rarr; date</td></tr>
+  <tr><td><code>description</code></td><td>String</td><td>Sim</td><td>Descricao da transacao</td><td>Sim &rarr; description</td></tr>
+  <tr><td><code>amount</code></td><td>Decimal</td><td>Sim</td><td>Valor (sempre positivo)</td><td>Sim &rarr; amount</td></tr>
+  <tr><td><code>type</code></td><td>TransactionType</td><td>Sim</td><td>DEBIT ou CREDIT</td><td>Sim &rarr; type</td></tr>
+  <tr><td><code>counterpartCnpjCpf</code></td><td>String?</td><td>Nao</td><td>CNPJ/CPF da contraparte</td><td>Nao (usado na classificacao)</td></tr>
+  <tr><td><code>counterpartName</code></td><td>String?</td><td>Nao</td><td>Nome da contraparte</td><td>Nao</td></tr>
+  <tr><td><code>chartOfAccountId</code></td><td>String?</td><td>Para validar</td><td>Conta contabil</td><td>Sim &rarr; chartOfAccountId</td></tr>
+  <tr><td><code>costCenterId</code></td><td>String?</td><td>Nao</td><td>Centro de custo</td><td>Sim &rarr; costCenterId</td></tr>
+  <tr><td><code>supplierId</code></td><td>String?</td><td>Nao</td><td>Fornecedor vinculado</td><td>Sim &rarr; supplierId</td></tr>
+  <tr><td><code>customerId</code></td><td>String?</td><td>Nao</td><td>Cliente vinculado</td><td>Sim &rarr; customerId</td></tr>
+  <tr><td><code>bankAccountId</code></td><td>String?</td><td>Para validar</td><td>Conta bancaria</td><td>Sim &rarr; bankAccountId</td></tr>
+  <tr><td><code>paymentMethodId</code></td><td>String?</td><td>Nao</td><td>Forma de pagamento</td><td>Sim &rarr; paymentMethodId</td></tr>
+  <tr style="background: #fef2f2;"><td><code>dueDate</code></td><td colspan="4"><span class="tag tag-red">NAO EXISTE</span> — Campo de vencimento nao existe no StagingEntry. Na incorporacao, <code>dueDate</code> recebe <code>entry.date</code>. <strong>Bug #1</strong></td></tr>
+  <tr style="background: #fef2f2;"><td><code>competenceDate</code></td><td colspan="4"><span class="tag tag-red">NAO EXISTE</span> — Campo de competencia nao existe. Na incorporacao, <code>competenceDate</code> recebe <code>entry.date</code>. <strong>Bug #2</strong></td></tr>
+  <tr style="background: #fef2f2;"><td><code>documentNumber</code></td><td colspan="4"><span class="tag tag-red">NAO EXISTE</span> — Numero de documento (NFe, boleto) nao pode ser informado no staging.</td></tr>
+  <tr><td><code>notes</code></td><td>String?</td><td>Nao</td><td>Observacoes</td><td>Nao (perdido na incorporacao)</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>OfficialEntry — Campos</h3>
+<table>
+  <tr><th>Campo</th><th>Tipo</th><th>Obrigatorio</th><th>Origem na Incorporacao</th><th>Descricao</th></tr>
+  <tr><td><code>sequentialNumber</code></td><td>Int</td><td>Auto</td><td>Auto-incremento por tenant</td><td>Numero sequencial unico</td></tr>
+  <tr><td><code>date</code></td><td>DateTime</td><td>Sim</td><td><code>staging.date</code></td><td>Data da transacao (caixa)</td></tr>
+  <tr><td><code>competenceDate</code></td><td>DateTime</td><td>Sim</td><td style="background:#fef2f2"><code>staging.date</code> <span class="tag tag-red">BUG</span></td><td>Deveria ser configuravel separadamente</td></tr>
+  <tr><td><code>description</code></td><td>String</td><td>Sim</td><td><code>staging.description</code></td><td>Descricao</td></tr>
+  <tr><td><code>amount</code></td><td>Decimal</td><td>Sim</td><td><code>staging.amount</code></td><td>Valor original</td></tr>
+  <tr><td><code>type</code></td><td>TransactionType</td><td>Sim</td><td><code>staging.type</code></td><td>DEBIT ou CREDIT</td></tr>
+  <tr><td><code>status</code></td><td>EntryStatus</td><td>Sim</td><td>Sempre <code>OPEN</code></td><td>Muda via baixa ou cancelamento</td></tr>
+  <tr><td><code>category</code></td><td>EntryCategory</td><td>Sim</td><td style="background:#fef2f2"><code>DEBIT?PAYABLE:RECEIVABLE</code> <span class="tag tag-red">BUG</span></td><td>Deveria derivar do tipo da conta contabil</td></tr>
+  <tr><td><code>dueDate</code></td><td>DateTime?</td><td>Nao</td><td style="background:#fef2f2"><code>staging.date</code> <span class="tag tag-red">BUG</span></td><td>Data de vencimento (critica para overdue)</td></tr>
+  <tr><td><code>originalDueDate</code></td><td>DateTime?</td><td>Nao</td><td>Nao preenchido</td><td>Vencimento original antes de renegociacao</td></tr>
+  <tr><td><code>paidDate</code></td><td>DateTime?</td><td>Nao</td><td>null</td><td>Data efetiva do pagamento (preenchido na baixa)</td></tr>
+  <tr><td><code>paidAmount</code></td><td>Decimal</td><td>Nao</td><td>0</td><td>Total acumulado de baixas</td></tr>
+  <tr><td><code>interestAmount</code></td><td>Decimal</td><td>Nao</td><td>0</td><td>Juros acumulados</td></tr>
+  <tr><td><code>fineAmount</code></td><td>Decimal</td><td>Nao</td><td>0</td><td>Multa acumulada</td></tr>
+  <tr><td><code>discountAmount</code></td><td>Decimal</td><td>Nao</td><td>0</td><td>Desconto acumulado</td></tr>
+  <tr><td><code>documentNumber</code></td><td>String?</td><td>Nao</td><td>Nao preenchido</td><td>Numero do documento fiscal/boleto</td></tr>
+  <tr><td><code>installmentGroupId</code></td><td>String?</td><td>Nao</td><td>null</td><td>Grupo de parcelas (ex: INST-abc12345)</td></tr>
+  <tr><td><code>installmentNumber</code></td><td>Int?</td><td>Nao</td><td>null</td><td>Numero da parcela (1, 2, 3...)</td></tr>
+  <tr><td><code>totalInstallments</code></td><td>Int?</td><td>Nao</td><td>null</td><td>Total de parcelas</td></tr>
+  <tr><td><code>recurringRuleId</code></td><td>String?</td><td>Nao</td><td>null</td><td>Regra recorrente que gerou (via cron)</td></tr>
+  <tr><td><code>stagingEntryId</code></td><td>String? (unique)</td><td>Nao</td><td><code>staging.id</code></td><td>Link 1:1 com staging de origem</td></tr>
+  <tr><td><code>chartOfAccountId</code></td><td>String</td><td>Sim</td><td><code>staging.chartOfAccountId</code></td><td>Conta contabil</td></tr>
+  <tr><td><code>bankAccountId</code></td><td>String</td><td>Sim</td><td><code>staging.bankAccountId</code></td><td>Conta bancaria</td></tr>
+  <tr><td><code>costCenterId</code></td><td>String?</td><td>Nao</td><td><code>staging.costCenterId</code></td><td>Centro de custo</td></tr>
+  <tr><td><code>supplierId</code></td><td>String?</td><td>Nao</td><td><code>staging.supplierId</code></td><td>Fornecedor</td></tr>
+  <tr><td><code>customerId</code></td><td>String?</td><td>Nao</td><td><code>staging.customerId</code></td><td>Cliente</td></tr>
+  <tr><td><code>paymentMethodId</code></td><td>String?</td><td>Nao</td><td><code>staging.paymentMethodId</code></td><td>Forma de pagamento</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3>Settlement — Campos (Registro de Baixa)</h3>
+<table>
+  <tr><th>Campo</th><th>Tipo</th><th>Descricao</th></tr>
+  <tr><td><code>officialEntryId</code></td><td>String</td><td>Lancamento sendo liquidado</td></tr>
+  <tr><td><code>date</code></td><td>DateTime</td><td>Data da baixa</td></tr>
+  <tr><td><code>amount</code></td><td>Decimal</td><td>Valor principal pago</td></tr>
+  <tr><td><code>interestAmount</code></td><td>Decimal</td><td>Juros cobrados</td></tr>
+  <tr><td><code>fineAmount</code></td><td>Decimal</td><td>Multa cobrada</td></tr>
+  <tr><td><code>discountAmount</code></td><td>Decimal</td><td>Desconto concedido</td></tr>
+  <tr><td><code>bankAccountId</code></td><td>String</td><td>Conta bancaria movimentada</td></tr>
+  <tr><td><code>paymentMethodId</code></td><td>String?</td><td>Forma de pagamento usada</td></tr>
+  <tr><td><code>document</code></td><td>String?</td><td>Comprovante (num recibo, etc)</td></tr>
+  <tr><td><code>settledById</code></td><td>String</td><td>Usuario que fez a baixa</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec3">3. Incorporacao: Staging &rarr; OfficialEntry</h2>
+<!-- ============================================ -->
+
+<div class="card card-green">
+<h3>Fluxo de Transicao de Status (Staging)</h3>
+<div class="flow">
+  <div class="flow-step"><strong>PENDING</strong><small>Recem criado</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>AUTO_CLASSIFIED</strong><small>Regra aplicada</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>VALIDATED</strong><small>Usuario OK</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step" style="border-color:var(--green)"><strong>INCORPORATED</strong><small>OfficialEntry criado</small></div>
+</div>
+<div class="flow">
+  <div class="flow-step"><strong>PENDING / AUTO_CLASSIFIED</strong></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step" style="border-color:var(--red)"><strong>REJECTED</strong><small>Com motivo</small></div>
+</div>
+
+<h3>Regras de Validacao (antes de incorporar)</h3>
+<table>
+  <tr><th>#</th><th>Regra</th><th>Mensagem de Erro</th></tr>
+  <tr><td>1</td><td>chartOfAccountId nao pode ser null</td><td>"Conta contabil nao informada"</td></tr>
+  <tr><td>2</td><td>bankAccountId nao pode ser null</td><td>"Conta bancaria nao informada"</td></tr>
+  <tr><td>3</td><td>date nao pode ser null</td><td>"Data nao informada"</td></tr>
+  <tr><td>4</td><td>description nao pode ser vazia</td><td>"Descricao nao informada"</td></tr>
+  <tr><td>5</td><td>amount deve ser > 0</td><td>"Valor deve ser positivo"</td></tr>
+  <tr><td>6</td><td>Nao existe outra entry com mesma (date + amount + description)</td><td>"Possivel duplicidade detectada"</td></tr>
+  <tr><td>7</td><td>Periodo (ano/mes) nao esta bloqueado</td><td>"Periodo X/Y esta bloqueado"</td></tr>
+</table>
+
+<h3>Logica de Incorporacao (o que acontece)</h3>
+<table>
+  <tr><th>Passo</th><th>Acao</th><th>Observacao</th></tr>
+  <tr><td>1</td><td>Busca staging entries com status = VALIDATED</td><td>Ignora outros status</td></tr>
+  <tr><td>2</td><td>Pega proximo numero sequencial</td><td>MAX(sequentialNumber) + 1 por tenant</td></tr>
+  <tr><td>3</td><td>Para cada entry, cria OfficialEntry dentro de transaction</td><td>1 transaction por entry</td></tr>
+  <tr><td>4</td><td>Copia campos: date, description, amount, type, classificacoes</td><td>Ver tabela de cruzamento</td></tr>
+  <tr><td>5</td><td style="background:#fef2f2">Define <code>category</code> = DEBIT ? PAYABLE : RECEIVABLE</td><td><span class="tag tag-red">Bug #3</span> — Ignora TRANSFER e ADJUSTMENT</td></tr>
+  <tr><td>6</td><td style="background:#fef2f2">Define <code>dueDate</code> = staging.date</td><td><span class="tag tag-red">Bug #1</span> — Deveria ser campo separado</td></tr>
+  <tr><td>7</td><td style="background:#fef2f2">Define <code>competenceDate</code> = staging.date</td><td><span class="tag tag-red">Bug #2</span> — Deveria ser campo separado</td></tr>
+  <tr><td>8</td><td>Define status = OPEN</td><td>Correto</td></tr>
+  <tr><td>9</td><td>Atualiza staging status = INCORPORATED</td><td>Correto</td></tr>
+  <tr><td>10</td><td>Grava AuditLog</td><td>Correto</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec4">4. Baixa (Settlement)</h2>
+<!-- ============================================ -->
+
+<div class="card card-purple">
+<h3>Fluxo de Status do Lancamento na Baixa</h3>
+<div class="flow">
+  <div class="flow-step active"><strong>OPEN</strong><small>Nenhum pgto</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Baixa parcial</strong><small>Settlement criado</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step" style="border-color:var(--amber)"><strong>PARTIAL</strong><small>paidAmount &lt; amount</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step"><strong>Baixa final</strong><small>Completa valor</small></div>
+  <span class="flow-arrow">&rarr;</span>
+  <div class="flow-step" style="border-color:var(--green)"><strong>SETTLED</strong><small>paidAmount &ge; amount</small></div>
+</div>
+
+<h3>Formulas da Baixa</h3>
+<div class="formula">
+  totalJaPago = SOMA(settlements anteriores) <br>
+  restante = entry.amount - totalJaPago <br>
+  valorBaixa = amount + juros + multa - desconto <br>
+  <br>
+  <strong>Validacao:</strong> amount &le; restante + 0.01 (tolerancia float) <br>
+  <strong>Status:</strong> SE totalPago &ge; amount - 0.01 ENTAO "SETTLED" SENAO "PARTIAL" <br>
+  <strong>Saldo banco:</strong> SE category=PAYABLE ENTAO saldo -= valorBaixa SENAO saldo += valorBaixa
+</div>
+
+<h3>Campos Atualizados no OfficialEntry</h3>
+<table>
+  <tr><th>Campo</th><th>Logica de Atualizacao</th></tr>
+  <tr><td><code>status</code></td><td>SETTLED se totalPago >= amount, senao PARTIAL</td></tr>
+  <tr><td><code>paidDate</code></td><td>Data da baixa (so quando totalPago >= amount)</td></tr>
+  <tr><td><code>paidAmount</code></td><td>Soma acumulada de todas as baixas</td></tr>
+  <tr><td><code>interestAmount</code></td><td>+= juros desta baixa (acumulativo)</td></tr>
+  <tr><td><code>fineAmount</code></td><td>+= multa desta baixa (acumulativo)</td></tr>
+  <tr><td><code>discountAmount</code></td><td>+= desconto desta baixa (acumulativo)</td></tr>
+</table>
+
+<h3>Problemas Identificados na Baixa</h3>
+<table>
+  <tr><th>ID</th><th>Problema</th><th>Impacto</th></tr>
+  <tr style="background:#fef2f2"><td><span class="bug-id">#4</span></td><td>Sem verificacao de PeriodLock antes da baixa</td><td>Permite baixar em periodo fechado</td></tr>
+  <tr style="background:#fffbeb"><td><span class="bug-id">#P1</span></td><td>PaymentMethod.feePercentage nunca aplicado</td><td>Taxas de cartao/boleto ignoradas</td></tr>
+  <tr style="background:#fffbeb"><td><span class="bug-id">#P2</span></td><td>Sem calculo automatico de juros/multa</td><td>Usuario precisa calcular manualmente</td></tr>
+  <tr style="background:#fffbeb"><td><span class="bug-id">#P6</span></td><td>Sem estorno de baixa (reversal)</td><td>Impossivel desfazer baixa errada</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec5">5. Parcelamento (Installments)</h2>
+<!-- ============================================ -->
+
+<div class="card card-blue">
+<h3>Logica de Geracao de Parcelas</h3>
+<div class="formula">
+  valorParcela = TRUNCAR(total / numParcelas, 2 casas) <br>
+  ultimaParcela = total - (valorParcela * (numParcelas - 1)) <br>
+  <br>
+  groupId = "INST-" + primeiros8chars(entryId) <br>
+  Vencimento[i] = primeiroDia + (i * intervaloDias) <br>
+  <br>
+  Entry original: status &rarr; CANCELLED <br>
+  Cada parcela: status = OPEN, description = "original (1/N)"
+</div>
+
+<h3>Campos Copiados do Original para Parcelas</h3>
+<table>
+  <tr><th>Campo</th><th>Copiado?</th><th>Observacao</th></tr>
+  <tr><td><code>chartOfAccountId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>costCenterId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>supplierId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>customerId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>bankAccountId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>paymentMethodId</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>documentNumber</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>category</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr><td><code>type</code></td><td><span class="tag tag-green">Sim</span></td><td></td></tr>
+  <tr style="background:#fef2f2"><td><code>competenceDate</code></td><td><span class="tag tag-red">BUG</span></td><td><strong>#P5</strong> — Todas parcelas recebem mesma competencia do original. Deveria usar o dueDate individual</td></tr>
+  <tr style="background:#fffbeb"><td><code>notes</code></td><td><span class="tag tag-amber">Nao</span></td><td>Observacoes do original sao perdidas</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec6">6. Conciliacao Bancaria</h2>
+<!-- ============================================ -->
+
+<div class="card card-green">
+<h3>Algoritmo de Auto-Conciliacao (3 passes)</h3>
+<table>
+  <tr><th>Pass</th><th>Criterio</th><th>MatchType</th><th>Score</th></tr>
+  <tr><td>1</td><td>Mesma data (exata) + mesmo valor (&lt;0.01 diff)</td><td><code>AUTO_EXACT</code></td><td>100</td></tr>
+  <tr><td>2</td><td>Data ±2 dias + mesmo valor (&lt;0.01 diff)</td><td><code>AUTO_DATE_TOLERANCE</code></td><td>80</td></tr>
+  <tr><td>3</td><td>Mesma data + valor ±1%</td><td><code>AUTO_VALUE_TOLERANCE</code></td><td>60</td></tr>
+</table>
+
+<h3>O que e cruzado</h3>
+<table>
+  <tr><th>Lado Esquerdo</th><th>Lado Direito</th><th>Status</th></tr>
+  <tr><td>BankStatementLine (extrato)</td><td>Settlement (baixa)</td><td><span class="tag tag-green">Implementado</span></td></tr>
+  <tr style="background:#fffbeb"><td>BankStatementLine (extrato)</td><td>OfficialEntry (direto)</td><td><span class="tag tag-amber">Nao implementado</span> — <strong>#P7</strong></td></tr>
+  <tr style="background:#fffbeb"><td>CardTransaction</td><td>OfficialEntry / Settlement</td><td><span class="tag tag-amber">Nao implementado</span> — So visualizacao</td></tr>
+</table>
+
+<h3>Conciliacao Manual</h3>
+<p>O usuario seleciona 1 BankStatementLine + 1 OfficialEntry (ou Settlement). Cria Reconciliation com matchType = MANUAL. Sem validacao de valores.</p>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec7">7. Lancamentos Recorrentes (Cron)</h2>
+<!-- ============================================ -->
+
+<div class="card card-amber">
+<h3>RecurringRule — Campos</h3>
+<table>
+  <tr><th>Campo</th><th>Descricao</th></tr>
+  <tr><td><code>name</code></td><td>Nome da regra (vira description do staging)</td></tr>
+  <tr><td><code>amount, type, category</code></td><td>Valor, tipo e categoria do lancamento</td></tr>
+  <tr><td><code>frequency</code></td><td>DAILY, WEEKLY, BIWEEKLY, MONTHLY, BIMONTHLY, QUARTERLY, SEMIANNUAL, ANNUAL</td></tr>
+  <tr><td><code>dayOfMonth</code></td><td>Dia fixo do mes (clamp ate 28 em meses curtos)</td></tr>
+  <tr><td><code>startDate / endDate</code></td><td>Periodo de vigencia</td></tr>
+  <tr><td><code>nextGenerationDate</code></td><td>Proxima data para gerar lancamento</td></tr>
+  <tr><td><code>active</code></td><td>Se false, nao gera mais</td></tr>
+</table>
+
+<h3>Cron: /api/cron/recurring-entries (POST)</h3>
+<table>
+  <tr><th>Passo</th><th>Acao</th></tr>
+  <tr><td>1</td><td>Busca regras: active=true E nextGenerationDate &le; hoje</td></tr>
+  <tr><td>2</td><td>Para cada regra, cria StagingEntry com status=AUTO_CLASSIFIED</td></tr>
+  <tr><td>3</td><td>Calcula proxima data baseado na frequencia</td></tr>
+  <tr><td>4</td><td>Se nextDate &gt; endDate, desativa regra (active=false)</td></tr>
+</table>
+
+<h3>Inconsistencia Encontrada</h3>
+<table>
+  <tr style="background:#fffbeb">
+    <td><span class="tag tag-amber">#P3</span></td>
+    <td>
+      <strong>Cron</strong> cria <code>StagingEntry</code> (passa pelo fluxo staging &rarr; oficial).<br>
+      <strong>Service</strong> (<code>recurring.ts</code>) cria <code>OfficialEntry</code> diretamente (bypass staging).<br>
+      O cron e o que roda em producao. O service e <strong>codigo morto</strong>.
+    </td>
+  </tr>
+  <tr style="background:#fef2f2">
+    <td><span class="tag tag-red">BUG</span></td>
+    <td>O cron nao passa <code>dueDate</code> nem <code>competenceDate</code> no StagingEntry criado (campos nao existem no schema ainda).</td>
+  </tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec8">8. Deteccao de Atraso (Overdue Cron)</h2>
+<!-- ============================================ -->
+
+<div class="card">
+<h3>Cron: /api/cron/overdue-check (POST)</h3>
+<table>
+  <tr><th>Passo</th><th>Acao</th></tr>
+  <tr><td>1</td><td>Busca entries: status IN (OPEN, PARTIAL), category IN (PAYABLE, RECEIVABLE), dueDate &lt; hoje</td></tr>
+  <tr><td>2</td><td>Para cada entry vencida, cria AuditLog com detectedOverdue=true</td></tr>
+  <tr><td>3</td><td>Conta payables vs receivables vencidos</td></tr>
+</table>
+
+<div class="card card-amber" style="margin-top:12px">
+  <strong>Problema #P4:</strong> O cron APENAS grava AuditLog. Nao cria Notification, nao altera status, nao envia email.
+  O usuario so descobre que tem contas vencidas se entrar na tela de excecoes ou no dashboard.
+</div>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec9">9. Classificacao Automatica</h2>
+<!-- ============================================ -->
+
+<div class="card card-blue">
+<h3>Regras de ClassificationRule (por prioridade)</h3>
+<table>
+  <tr><th>Campo (field)</th><th>Logica de Match</th><th>Exemplo</th></tr>
+  <tr><td><code>CNPJ</code></td><td>Match exato de CNPJ (so digitos)</td><td>Pattern: "12345678000199" casa com counterpartCnpjCpf</td></tr>
+  <tr><td><code>DESCRIPTION</code></td><td>Substring case-insensitive</td><td>Pattern: "aluguel" casa com "Pagamento aluguel escritorio"</td></tr>
+  <tr><td><code>VALUE_RANGE</code></td><td>Valor entre min-max (pattern: "100-500")</td><td>Pattern: "1000-5000" casa com amount=2500</td></tr>
+</table>
+
+<h3>O que a classificacao preenche</h3>
+<table>
+  <tr><th>Campo preenchido</th><th>De onde vem</th></tr>
+  <tr><td><code>chartOfAccountId</code></td><td>Da regra (se definido)</td></tr>
+  <tr><td><code>costCenterId</code></td><td>Da regra (se definido)</td></tr>
+  <tr><td><code>supplierId</code></td><td>Da regra (se definido)</td></tr>
+  <tr><td><code>customerId</code></td><td>Da regra (se definido)</td></tr>
+</table>
+<p style="font-size:13px; color:var(--muted); margin-top:8px;">A primeira regra que casar (por prioridade) ganha. Se nenhuma casar, entry fica PENDING sem classificacao.</p>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec10">10. Importacoes — Cruzamento com Staging</h2>
+<!-- ============================================ -->
+
+<div class="card">
+<h3>Mapeamento: Dados Importados &rarr; StagingEntry</h3>
+<table>
+  <tr><th>Fonte</th><th>date</th><th>description</th><th>amount</th><th>type</th><th>counterpartCnpj</th><th>bankAccountId</th></tr>
+  <tr><td>Extrato Bancario</td><td>transactionDate</td><td>description</td><td>|amount|</td><td>Da transacao</td><td>—</td><td>Selecionado pelo usuario</td></tr>
+  <tr><td>Cartao</td><td>transactionDate</td><td>description</td><td>grossAmount</td><td>DEBIT</td><td>—</td><td>—</td></tr>
+  <tr><td>NFe (arquivo)</td><td>issueDate</td><td>"NF {num} - {issuer}"</td><td>totalValue</td><td>DEBIT</td><td>cnpjIssuer</td><td>—</td></tr>
+  <tr><td>NFe (QIVE)</td><td>issueDate</td><td>"NF {num} - {issuer}"</td><td>totalValue</td><td>DEBIT</td><td>cnpjIssuer</td><td>—</td></tr>
+  <tr><td>Nota de Compra</td><td>issueDate</td><td>"NF Compra {num}"</td><td>netValue</td><td>DEBIT</td><td>CNPJ supplier</td><td>—</td></tr>
+  <tr><td>Pluggy</td><td>tx.date</td><td>tx.description</td><td>|tx.amount|</td><td>tx.type</td><td>Extraido de paymentData</td><td>Vinculado na conexao</td></tr>
+</table>
+
+<h3>Deduplicacao por Fonte</h3>
+<table>
+  <tr><th>Fonte</th><th>Chave unica</th></tr>
+  <tr><td>BankStatementLine</td><td><code>(tenantId, bankAccountId, externalId)</code></td></tr>
+  <tr><td>TaxInvoiceLine</td><td><code>(tenantId, externalId)</code> — accessKey da NFe</td></tr>
+  <tr><td>Pluggy</td><td>Verifica <code>externalId</code> do BankStatementLine</td></tr>
+  <tr><td>QIVE</td><td>Verifica <code>externalId</code> do TaxInvoiceLine via accessKey</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec11">11. Paginas e Operacoes Disponiveis</h2>
+<!-- ============================================ -->
+
+<div class="card">
+<table>
+  <tr><th>Pagina</th><th>Visualizacao</th><th>Criar</th><th>Editar</th><th>Baixar</th><th>Parcelar</th><th>Cancelar</th><th>Estornar</th></tr>
+  <tr><td>/staging</td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-green">Sim</span></td><td>—</td><td>—</td><td><span class="tag tag-green">Rejeitar</span></td><td>—</td></tr>
+  <tr><td>/financial/entries</td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Bug #5</span></td><td><span class="tag tag-red">Bug #5</span></td><td><span class="tag tag-red">Bug #5</span></td><td><span class="tag tag-red">Nao</span></td></tr>
+  <tr><td>/financial/payables</td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td></tr>
+  <tr><td>/financial/receivables</td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td></tr>
+  <tr><td>/financial/installments</td><td><span class="tag tag-green">Sim</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td>/financial/recurring</td><td><span class="tag tag-green">Sim</span></td><td><span class="tag tag-red">Nao</span></td><td><span class="tag tag-red">Nao</span></td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td>/financial/calendar</td><td><span class="tag tag-green">Sim</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td>/reconciliation/bank</td><td><span class="tag tag-green">Sim</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="tag tag-green">Desfazer</span></td></tr>
+</table>
+<p style="margin-top:8px; font-size:13px; color:var(--red);">
+  <strong>Bug #5:</strong> A pagina /financial/entries tem botoes de Liquidar, Parcelar e Cancelar no codigo, mas eles chamam
+  <code>fetch("/api/financial/settle")</code>, <code>fetch("/api/financial/installments")</code> e <code>fetch("/api/financial/cancel")</code>
+  que <strong>nao existem</strong>. Esses endpoints API nunca foram criados. As operacoes falham silenciosamente.
+</p>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec12">12. Mapa Completo de Bugs e Problemas</h2>
+<!-- ============================================ -->
+
+<div class="card card-red">
+<h3>Bugs Criticos (afetam dados financeiros)</h3>
+<table>
+  <tr><th>ID</th><th>Local</th><th>Descricao</th><th>Impacto</th></tr>
+  <tr style="background:#fef2f2"><td><strong>#1</strong></td><td>staging.ts (incorporacao)</td><td><code>dueDate = entry.date</code> — Campo dueDate nao existe no StagingEntry</td><td>Todas contas a pagar/receber com vencimento errado. Calendario, fluxo de caixa e overdue incorretos.</td></tr>
+  <tr style="background:#fef2f2"><td><strong>#2</strong></td><td>staging.ts (incorporacao)</td><td><code>competenceDate = entry.date</code> — Campo nao existe no StagingEntry</td><td>DRE e relatorios por competencia ficam distorcidos.</td></tr>
+  <tr style="background:#fef2f2"><td><strong>#3</strong></td><td>staging.ts (incorporacao)</td><td><code>category = DEBIT?PAYABLE:RECEIVABLE</code> — Ignora ChartOfAccount.type</td><td>Transferencias e ajustes poluem contas a pagar/receber.</td></tr>
+  <tr style="background:#fef2f2"><td><strong>#4</strong></td><td>settlement.ts</td><td>Sem verificacao de PeriodLock</td><td>Permite baixar em periodo fechado, violando controle de fechamento.</td></tr>
+  <tr style="background:#fef2f2"><td><strong>#5</strong></td><td>entries/client.tsx</td><td>Chamadas a /api/financial/* que nao existem</td><td>Botoes de Liquidar, Parcelar e Cancelar nao funcionam.</td></tr>
+</table>
+</div>
+
+<div class="card card-amber">
+<h3>Problemas Importantes (afetam usabilidade)</h3>
+<table>
+  <tr><th>ID</th><th>Local</th><th>Descricao</th></tr>
+  <tr><td>#P1</td><td>settlement.ts</td><td>PaymentMethod.feePercentage e daysToSettle nunca usados</td></tr>
+  <tr><td>#P2</td><td>settlement.ts</td><td>Sem calculo automatico de juros/multa para contas vencidas</td></tr>
+  <tr><td>#P3</td><td>recurring.ts vs cron</td><td>Service cria OfficialEntry, cron cria StagingEntry — codigo morto</td></tr>
+  <tr><td>#P4</td><td>overdue-check cron</td><td>So grava AuditLog, nao cria Notification</td></tr>
+  <tr><td>#P5</td><td>installment.ts</td><td>Todas parcelas com mesma competenceDate do original</td></tr>
+  <tr><td>#P6</td><td>settlement.ts</td><td>Sem estorno de baixa (reversal)</td></tr>
+  <tr><td>#P7</td><td>reconciliation.ts</td><td>Conciliacao so cruza com Settlement, nao com OfficialEntry direto</td></tr>
+  <tr><td>#P8</td><td>cash-flow/page.tsx</td><td>Nao inclui RecurringRules nas projecoes futuras</td></tr>
+  <tr><td>#P9</td><td>payables + receivables</td><td>Paginas somente leitura — sem criar, baixar, parcelar</td></tr>
+  <tr><td>#P10</td><td>financial.ts</td><td>Sem criacao direta de lancamento (sempre via staging)</td></tr>
+  <tr><td>#P11</td><td>—</td><td>Sem transferencia entre contas (category TRANSFER nunca usado)</td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec13">13. Melhorias Sugeridas</h2>
+<!-- ============================================ -->
+
+<div class="card card-blue">
+<table>
+  <tr><th>Melhoria</th><th>Descricao</th><th>Prioridade</th></tr>
+  <tr><td>Juros/multa automaticos</td><td>Ao abrir dialog de baixa para conta vencida, sugerir multa 2% + juros 1%/mes pro-rata</td><td><span class="tag tag-amber">Media</span></td></tr>
+  <tr><td>Baixa em lote</td><td>Selecionar multiplas contas e liquidar todas com mesma data/banco</td><td><span class="tag tag-amber">Media</span></td></tr>
+  <tr><td>Write-off</td><td>Marcar saldo residual como perda (novo status WRITTEN_OFF)</td><td><span class="tag tag-blue">Baixa</span></td></tr>
+  <tr><td>Optimistic locking</td><td>Campo version no OfficialEntry para evitar conflito concorrente</td><td><span class="tag tag-blue">Baixa</span></td></tr>
+  <tr><td>Rateio centro de custo</td><td>Distribuir lancamento entre multiplos centros de custo (%)</td><td><span class="tag tag-blue">Baixa</span></td></tr>
+  <tr><td>Renegociacao</td><td>Alterar vencimento, consolidar titulos, reparcelar</td><td><span class="tag tag-blue">Baixa</span></td></tr>
+  <tr><td>Precisao Decimal</td><td>Trocar Number() por Prisma.Decimal nos calculos de valores</td><td><span class="tag tag-blue">Baixa</span></td></tr>
+</table>
+</div>
+
+<!-- ============================================ -->
+<h2 id="sec14">14. Cruzamento Completo de Campos</h2>
+<!-- ============================================ -->
+
+<div class="card">
+<h3>Staging &rarr; OfficialEntry &rarr; Settlement &rarr; Reconciliation</h3>
+<table>
+  <tr>
+    <th style="width:25%">StagingEntry</th>
+    <th style="width:25%">OfficialEntry</th>
+    <th style="width:25%">Settlement</th>
+    <th style="width:25%">Reconciliation</th>
+  </tr>
+  <tr>
+    <td><code>id</code></td>
+    <td><code>stagingEntryId</code> &larr; ref</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>date</code></td>
+    <td><code>date</code></td>
+    <td><code>date</code> (da baixa)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td style="background:#fef2f2">— (nao existe)</td>
+    <td><code>dueDate</code> = date <span class="tag tag-red">BUG</span></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td style="background:#fef2f2">— (nao existe)</td>
+    <td><code>competenceDate</code> = date <span class="tag tag-red">BUG</span></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>description</code></td>
+    <td><code>description</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>amount</code></td>
+    <td><code>amount</code></td>
+    <td><code>amount</code> (valor pago)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>type</code> (DEBIT/CREDIT)</td>
+    <td><code>type</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td style="background:#fef2f2">— (derivado do type)</td>
+    <td><code>category</code> <span class="tag tag-red">BUG #3</span></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>status</code> (OPEN&rarr;PARTIAL&rarr;SETTLED)</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>chartOfAccountId</code></td>
+    <td><code>chartOfAccountId</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>bankAccountId</code></td>
+    <td><code>bankAccountId</code></td>
+    <td><code>bankAccountId</code></td>
+    <td>via BankStatementLine</td>
+  </tr>
+  <tr>
+    <td><code>costCenterId</code></td>
+    <td><code>costCenterId</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>supplierId</code></td>
+    <td><code>supplierId</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>customerId</code></td>
+    <td><code>customerId</code></td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><code>paymentMethodId</code></td>
+    <td><code>paymentMethodId</code></td>
+    <td><code>paymentMethodId</code></td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>paidAmount</code> (acumulado)</td>
+    <td><code>amount</code> (individual)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>interestAmount</code> (acumulado)</td>
+    <td><code>interestAmount</code> (individual)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>fineAmount</code> (acumulado)</td>
+    <td><code>fineAmount</code> (individual)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>discountAmount</code> (acumulado)</td>
+    <td><code>discountAmount</code> (individual)</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td><code>id</code></td>
+    <td><code>officialEntryId</code> &larr; ref</td>
+    <td><code>officialEntryId</code> &larr; ref</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td>—</td>
+    <td><code>id</code></td>
+    <td><code>settlementId</code> &larr; ref</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td><code>bankStatementLineId</code> &larr; ref (extrato)</td>
+  </tr>
+  <tr>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+    <td><code>matchType</code> (AUTO_EXACT, etc.)</td>
+  </tr>
+</table>
+</div>
+
+<div class="card" style="margin-top:32px; text-align:center; color:var(--muted); font-size:13px;">
+  <p>Documento gerado automaticamente pela revisao do sistema financeiro.</p>
+  <p>Revise cada secao e retorne com suas decisoes sobre quais bugs corrigir e quais melhorias implementar.</p>
+</div>
+
+</body>
+</html>

@@ -5,19 +5,32 @@ import prisma from "@/lib/db";
 import { getCurrentUser, requireRole } from "@/lib/auth-utils";
 import { createInternalTransfer } from "@/lib/services/transfer";
 import { internalTransferSchema } from "@/lib/validations/rules";
+import { normalizePagination, buildPaginatedResult, type PaginationParams } from "@/lib/utils/pagination";
 
-export async function listInternalTransfers() {
+export async function listInternalTransfers(params?: {
+  pagination?: PaginationParams;
+}) {
   const user = await getCurrentUser();
-  return prisma.internalTransfer.findMany({
-    where: { tenantId: user.tenantId },
-    orderBy: { transferDate: "desc" },
-    include: {
-      sourceAccount: { select: { bankName: true, accountNumber: true } },
-      targetAccount: { select: { bankName: true, accountNumber: true } },
-      createdBy: { select: { name: true } },
-    },
-    take: 100,
-  });
+  const { skip, take, page, pageSize } = normalizePagination(params?.pagination);
+
+  const where = { tenantId: user.tenantId };
+
+  const [data, total] = await Promise.all([
+    prisma.internalTransfer.findMany({
+      where,
+      orderBy: { transferDate: "desc" },
+      include: {
+        sourceAccount: { select: { bankName: true, accountNumber: true } },
+        targetAccount: { select: { bankName: true, accountNumber: true } },
+        createdBy: { select: { name: true } },
+      },
+      skip,
+      take,
+    }),
+    prisma.internalTransfer.count({ where }),
+  ]);
+
+  return buildPaginatedResult(data, total, page, pageSize);
 }
 
 export async function createTransfer(data: {

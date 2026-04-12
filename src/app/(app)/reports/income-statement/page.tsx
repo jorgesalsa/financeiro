@@ -116,6 +116,31 @@ export default async function IncomeStatementPage() {
     investments.reduce((sum, r) => sum + r.monthly[i], 0)
   );
 
+  // Heatmap: returns a bg class based on % variation
+  function variationBg(pct: number | null): string {
+    if (pct === null) return "";
+    if (pct >= 20) return "bg-emerald-100 text-emerald-800";
+    if (pct >= 5) return "bg-emerald-50 text-emerald-700";
+    if (pct > -5) return "";
+    if (pct > -20) return "bg-red-50 text-red-700";
+    return "bg-red-100 text-red-800";
+  }
+
+  function calcVariation(current: number, previous: number): number | null {
+    if (previous === 0) return current === 0 ? null : null;
+    return ((current - previous) / Math.abs(previous)) * 100;
+  }
+
+  function formatVariation(pct: number | null): string {
+    if (pct === null) return "—";
+    const sign = pct >= 0 ? "+" : "";
+    return `${sign}${pct.toFixed(1)}%`;
+  }
+
+  // Current month index (0-based) for variation column
+  const currentMonthIdx = new Date().getMonth();
+  const prevMonthIdx = currentMonthIdx > 0 ? currentMonthIdx - 1 : null;
+
   function renderSection(
     title: string,
     rows: AccountRow[],
@@ -125,28 +150,40 @@ export default async function IncomeStatementPage() {
     bgClass: string,
     textClass: string,
   ) {
+    const totalVar = prevMonthIdx !== null
+      ? calcVariation(monthly[currentMonthIdx], monthly[prevMonthIdx])
+      : null;
+
     return (
       <>
         <tr className={bgClass}>
-          <td colSpan={14} className={`px-3 py-2 font-bold ${textClass}`}>
+          <td colSpan={15} className={`px-3 py-2 font-bold ${textClass}`}>
             {title}
           </td>
         </tr>
-        {rows.map((row) => (
-          <tr key={row.code} className="border-b">
-            <td className="px-3 py-2 sticky left-0 bg-background">
-              {row.code} - {row.name}
-            </td>
-            {row.monthly.map((val, i) => (
-              <td key={i} className="px-3 py-2 text-right">
-                {val > 0 ? formatCurrency(val) : "—"}
+        {rows.map((row) => {
+          const rowVar = prevMonthIdx !== null
+            ? calcVariation(row.monthly[currentMonthIdx], row.monthly[prevMonthIdx])
+            : null;
+          return (
+            <tr key={row.code} className="border-b">
+              <td className="px-3 py-2 sticky left-0 bg-background">
+                {row.code} - {row.name}
               </td>
-            ))}
-            <td className="px-3 py-2 text-right font-medium">
-              {formatCurrency(row.ytd)}
-            </td>
-          </tr>
-        ))}
+              {row.monthly.map((val, i) => (
+                <td key={i} className="px-3 py-2 text-right">
+                  {val > 0 ? formatCurrency(val) : "—"}
+                </td>
+              ))}
+              <td className="px-3 py-2 text-right font-medium">
+                {formatCurrency(row.ytd)}
+              </td>
+              <td className={`px-3 py-2 text-right text-xs font-medium ${variationBg(rowVar)}`}>
+                {formatVariation(rowVar)}
+              </td>
+            </tr>
+          );
+        })}
         <tr className={`border-b ${bgClass} font-bold`}>
           <td className={`px-3 py-2 sticky left-0 ${bgClass}`}>{totalLabel}</td>
           {monthly.map((val, i) => (
@@ -155,12 +192,18 @@ export default async function IncomeStatementPage() {
             </td>
           ))}
           <td className="px-3 py-2 text-right">{formatCurrency(total)}</td>
+          <td className={`px-3 py-2 text-right text-xs font-medium ${variationBg(totalVar)}`}>
+            {formatVariation(totalVar)}
+          </td>
         </tr>
       </>
     );
   }
 
   function renderSubtotalRow(label: string, monthly: number[], total: number, bgClass: string) {
+    const subVar = prevMonthIdx !== null
+      ? calcVariation(monthly[currentMonthIdx], monthly[prevMonthIdx])
+      : null;
     return (
       <tr className={`border-b ${bgClass} font-bold`}>
         <td className={`px-3 py-2 sticky left-0 ${bgClass}`}>{label}</td>
@@ -170,6 +213,9 @@ export default async function IncomeStatementPage() {
           </td>
         ))}
         <td className="px-3 py-2 text-right">{formatCurrency(total)}</td>
+        <td className={`px-3 py-2 text-right text-xs font-medium ${variationBg(subVar)}`}>
+          {formatVariation(subVar)}
+        </td>
       </tr>
     );
   }
@@ -232,6 +278,7 @@ export default async function IncomeStatementPage() {
                 </th>
               ))}
               <th className="px-3 py-3 text-right font-medium">YTD</th>
+              <th className="px-3 py-3 text-right font-medium whitespace-nowrap">Var %</th>
             </tr>
           </thead>
           <tbody>
@@ -274,6 +321,16 @@ export default async function IncomeStatementPage() {
                 </td>
               ))}
               <td className="px-3 py-3 text-right">{formatCurrency(netResult)}</td>
+              {(() => {
+                const nrVar = prevMonthIdx !== null
+                  ? calcVariation(netResultMonthly[currentMonthIdx], netResultMonthly[prevMonthIdx])
+                  : null;
+                return (
+                  <td className={`px-3 py-3 text-right text-xs ${variationBg(nrVar)}`}>
+                    {formatVariation(nrVar)}
+                  </td>
+                );
+              })()}
             </tr>
           </tbody>
         </table>

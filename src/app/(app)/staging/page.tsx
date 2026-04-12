@@ -1,4 +1,4 @@
-import { listStagingEntries } from "@/lib/actions/staging";
+import { listStagingEntries, getStagingStatusCounts } from "@/lib/actions/staging";
 import {
   listChartOfAccounts,
   listCostCenters,
@@ -11,10 +11,19 @@ import { getCurrentUser } from "@/lib/auth-utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { StagingClient } from "./client";
 
-export default async function StagingPage() {
-  const [entries, user, chartOfAccounts, costCenters, bankAccounts, suppliers, customers, paymentMethods] =
+export default async function StagingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; status?: string }>;
+}) {
+  const params = await searchParams;
+  const page = parseInt(params.page ?? "1", 10) || 1;
+  const statusFilter = params.status && params.status !== "ALL" ? params.status : undefined;
+
+  const [result, statusCounts, user, chartOfAccounts, costCenters, bankAccounts, suppliers, customers, paymentMethods] =
     await Promise.all([
-      listStagingEntries(),
+      listStagingEntries({ status: statusFilter, pagination: { page, pageSize: 50 } }),
+      getStagingStatusCounts(),
       getCurrentUser(),
       listChartOfAccounts(),
       listCostCenters(),
@@ -24,21 +33,9 @@ export default async function StagingPage() {
       listPaymentMethods(),
     ]);
 
-  const counts: Record<string, number> = {
-    ALL: entries.length,
-    PENDING: 0,
-    PARSED: 0,
-    NORMALIZED: 0,
-    AUTO_CLASSIFIED: 0,
-    CONFLICT: 0,
-    VALIDATED: 0,
-    INCORPORATED: 0,
-    REJECTED: 0,
-  };
-
   // Serialize Prisma objects to plain JSON-safe objects
-  // Decimal → number, Date → ISO string, strip non-serializable internal fields
-  const serializedEntries = entries.map((entry) => ({
+  // Decimal -> number, Date -> ISO string, strip non-serializable internal fields
+  const serializedEntries = result.data.map((entry) => ({
     id: entry.id,
     date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
     dueDate: entry.dueDate
@@ -75,20 +72,23 @@ export default async function StagingPage() {
       : null,
   }));
 
-  for (const entry of serializedEntries) {
-    counts[entry.status] = (counts[entry.status] ?? 0) + 1;
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Staging"
-        description="Lançamentos importados aguardando classificação e incorporação"
+        description="Lancamentos importados aguardando classificacao e incorporacao"
       />
       <StagingClient
         data={serializedEntries}
-        statusCounts={counts}
+        statusCounts={statusCounts}
         userRole={user.memberRole}
+        activeStatus={params.status ?? "ALL"}
+        pagination={{
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
+        }}
         lookups={{
           chartOfAccounts: chartOfAccounts.map((c) => ({ id: c.id, code: c.code, name: c.name })),
           costCenters: costCenters.map((c) => ({ id: c.id, code: c.code, name: c.name })),

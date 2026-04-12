@@ -4,9 +4,13 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { autoReconcile, manualReconcile, approveReconciliation } from "@/lib/services/reconciliation";
+import { normalizePagination, buildPaginatedResult, type PaginationParams } from "@/lib/utils/pagination";
+import { reconciliationRateLimit } from "@/lib/middleware/rate-limit";
 
 export async function runAutoReconciliation(bankAccountId: string) {
   const user = await getCurrentUser();
+  reconciliationRateLimit(`reconcile:${user.tenantId}`);
+
   const result = await autoReconcile(user.tenantId, bankAccountId, user.id, user.email);
   revalidatePath("/reconciliation/bank");
   return result;
@@ -44,22 +48,35 @@ export async function approveReconciliationAction(reconciliationId: string) {
 }
 
 // RA04: List reconciliations requiring review
-export async function listReviewQueue(bankAccountId?: string) {
+export async function listReviewQueue(params?: {
+  bankAccountId?: string;
+  pagination?: PaginationParams;
+}) {
   const user = await getCurrentUser();
-  return prisma.reconciliation.findMany({
-    where: {
-      tenantId: user.tenantId,
-      requiresHumanReview: true,
-      ...(bankAccountId ? { bankStatementLine: { bankAccountId } } : {}),
-    },
-    include: {
-      bankStatementLine: { select: { transactionDate: true, description: true, amount: true } },
-      officialEntry: { select: { description: true, amount: true, date: true } },
-      settlement: { select: { amount: true, date: true } },
-    },
-    orderBy: { reconciledAt: "desc" },
-    take: 100,
-  });
+  const { skip, take, page, pageSize } = normalizePagination(params?.pagination);
+
+  const where = {
+    tenantId: user.tenantId,
+    requiresHumanReview: true as const,
+    ...(params?.bankAccountId ? { bankStatementLine: { bankAccountId: params.bankAccountId } } : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.reconciliation.findMany({
+      where,
+      include: {
+        bankStatementLine: { select: { transactionDate: true, description: true, amount: true } },
+        officialEntry: { select: { description: true, amount: true, date: true } },
+        settlement: { select: { amount: true, date: true } },
+      },
+      orderBy: { reconciledAt: "desc" },
+      skip,
+      take,
+    }),
+    prisma.reconciliation.count({ where }),
+  ]);
+
+  return buildPaginatedResult(data, total, page, pageSize);
 }
 
 export async function getReconciliationStatus(bankAccountId: string) {

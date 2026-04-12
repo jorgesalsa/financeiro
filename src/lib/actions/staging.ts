@@ -6,24 +6,57 @@ import { getCurrentUser, requireRole } from "@/lib/auth-utils";
 import { createAuditLog } from "@/lib/utils/audit";
 import { validateStagingEntry, incorporateStagingEntries, assertValidTransition } from "@/lib/services/staging";
 import { stagingEntrySchema, type StagingEntryInput } from "@/lib/validations/staging";
+import { normalizePagination, buildPaginatedResult, type PaginationParams } from "@/lib/utils/pagination";
+import { stagingBatchRateLimit } from "@/lib/middleware/rate-limit";
 
-export async function listStagingEntries(status?: string) {
+export async function listStagingEntries(params?: {
+  status?: string;
+  pagination?: PaginationParams;
+}) {
   const user = await getCurrentUser();
-  return prisma.stagingEntry.findMany({
-    where: {
-      tenantId: user.tenantId,
-      ...(status ? { status: status as any } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      chartOfAccount: { select: { code: true, name: true } },
-      costCenter: { select: { code: true, name: true } },
-      supplier: { select: { name: true } },
-      customer: { select: { name: true } },
-      bankAccount: { select: { bankName: true, accountNumber: true } },
-    },
-    take: 200,
+  const { skip, take, page, pageSize } = normalizePagination(params?.pagination);
+
+  const where = {
+    tenantId: user.tenantId,
+    ...(params?.status ? { status: params.status as any } : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.stagingEntry.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        chartOfAccount: { select: { code: true, name: true } },
+        costCenter: { select: { code: true, name: true } },
+        supplier: { select: { name: true } },
+        customer: { select: { name: true } },
+        bankAccount: { select: { bankName: true, accountNumber: true } },
+      },
+      skip,
+      take,
+    }),
+    prisma.stagingEntry.count({ where }),
+  ]);
+
+  return buildPaginatedResult(data, total, page, pageSize);
+}
+
+export async function getStagingStatusCounts() {
+  const user = await getCurrentUser();
+  const counts = await prisma.stagingEntry.groupBy({
+    by: ["status"],
+    where: { tenantId: user.tenantId },
+    _count: { status: true },
   });
+
+  const result: Record<string, number> = {};
+  let allCount = 0;
+  for (const row of counts) {
+    result[row.status] = row._count.status;
+    allCount += row._count.status;
+  }
+  result.ALL = allCount;
+  return result;
 }
 
 export async function createStagingEntry(data: StagingEntryInput) {
@@ -113,6 +146,8 @@ export async function rejectStagingEntry(id: string, reason: string) {
 
 export async function incorporateEntries(ids: string[]) {
   const user = await requireRole(["ADMIN", "CONTROLLER"]);
+  stagingBatchRateLimit(`staging-batch:${user.tenantId}`);
+
   const results = await incorporateStagingEntries(ids, user.tenantId, user.id, user.email);
   revalidatePath("/staging");
   revalidatePath("/financial/entries");

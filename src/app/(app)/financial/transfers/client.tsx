@@ -21,10 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, ArrowRightLeft } from "lucide-react";
+import { Plus, ArrowRightLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { createTransfer } from "@/lib/actions/transfer";
 import { formatCurrency } from "@/lib/utils/format";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Transfer {
   id: string;
@@ -44,14 +44,24 @@ interface BankAccount {
   currentBalance: string;
 }
 
+interface TransfersClientProps {
+  transfers: Transfer[];
+  bankAccounts: BankAccount[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export default function TransfersClient({
   transfers,
   bankAccounts,
-}: {
-  transfers: Transfer[];
-  bankAccounts: BankAccount[];
-}) {
+  pagination,
+}: TransfersClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -198,6 +208,42 @@ export default function TransfersClient({
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+          {pagination.total} registro(s) — pagina {pagination.page} de {pagination.totalPages}
+        </p>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("page", String(pagination.page - 1));
+              router.push(`/financial/transfers?${params.toString()}`);
+            }}
+            disabled={pagination.page <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+            {pagination.page} / {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("page", String(pagination.page + 1));
+              router.push(`/financial/transfers?${params.toString()}`);
+            }}
+            disabled={pagination.page >= pagination.totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

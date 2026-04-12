@@ -24,8 +24,9 @@ import {
   ShieldAlert,
   Tag,
   Layers,
+  Trash2,
 } from "lucide-react";
-import { createTenant, updateTenant } from "@/lib/actions/admin";
+import { createTenant, updateTenant, deleteTenant } from "@/lib/actions/admin";
 import { switchTenant } from "@/lib/actions/tenant";
 
 type ExceptionInfo = {
@@ -78,6 +79,7 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
   const [isPending, startTransition] = useTransition();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingTenant, setDeletingTenant] = useState<TenantInfo | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -167,6 +169,30 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
         showFeedback("error", err.message || "Erro ao trocar de empresa");
       }
     });
+  }
+
+  async function handleDelete() {
+    if (!deletingTenant) return;
+    startTransition(async () => {
+      try {
+        await deleteTenant(deletingTenant.tenantId);
+        showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
+        setDeletingTenant(null);
+        router.refresh();
+      } catch (err: any) {
+        showFeedback("error", err.message || "Erro ao excluir empresa");
+        setDeletingTenant(null);
+      }
+    });
+  }
+
+  function canDelete(tenant: TenantInfo): boolean {
+    return (
+      tenant.active &&
+      !tenant.isDefault &&
+      tenant.role === "ADMIN" &&
+      tenants.length > 1
+    );
   }
 
   return (
@@ -375,12 +401,62 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
                     <Pencil className="mr-2 h-4 w-4" />
                     Editar
                   </Button>
+                  {canDelete(tenant) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeletingTenant(tenant)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deletingTenant} onOpenChange={(open) => !open && setDeletingTenant(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Excluir Empresa
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir a empresa{" "}
+              <strong className="text-foreground">{deletingTenant?.tenantName}</strong>?
+            </p>
+            <p className="text-sm text-muted-foreground">
+              A empresa será desativada e não aparecerá mais na listagem. Seus dados serão preservados.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeletingTenant(null)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isPending}
+            >
+              {isPending ? "Excluindo..." : "Excluir Empresa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

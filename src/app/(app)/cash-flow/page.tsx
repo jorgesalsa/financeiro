@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { CashFlowChart, type CashFlowChartData } from "@/components/cash-flow/cash-flow-chart";
 
 export default async function CashFlowPage() {
   const user = await getCurrentUser();
@@ -109,6 +110,39 @@ export default async function CashFlowPage() {
   const realizedDates = Array.from(realizedByDate.keys()).sort();
   const projectedDates = Array.from(projectedByDate.keys()).sort();
 
+  // --- Build weekly chart data (realized + projected combined) ---
+  function getWeekLabel(dateStr: string): string {
+    const d = new Date(dateStr);
+    const day = d.getDate();
+    const month = d.toLocaleString("pt-BR", { month: "short" }).replace(".", "");
+    const weekNum = Math.ceil(day / 7);
+    return `S${weekNum} ${month}`;
+  }
+
+  const weeklyMap = new Map<string, { inflow: number; outflow: number }>();
+
+  // Add realized data to weeks
+  for (const [dateKey, bucket] of realizedByDate) {
+    const wk = getWeekLabel(dateKey);
+    if (!weeklyMap.has(wk)) weeklyMap.set(wk, { inflow: 0, outflow: 0 });
+    const w = weeklyMap.get(wk)!;
+    w.inflow += bucket.inflow;
+    w.outflow += bucket.outflow;
+  }
+
+  // Add projected data to weeks
+  for (const [dateKey, bucket] of projectedByDate) {
+    if (dateKey === "sem-data") continue;
+    const wk = getWeekLabel(dateKey);
+    if (!weeklyMap.has(wk)) weeklyMap.set(wk, { inflow: 0, outflow: 0 });
+    const w = weeklyMap.get(wk)!;
+    w.inflow += bucket.inflow;
+    w.outflow += bucket.outflow;
+  }
+
+  const chartData: CashFlowChartData[] = Array.from(weeklyMap.entries())
+    .map(([label, { inflow, outflow }]) => ({ label, inflow, outflow }));
+
   // Realized totals for summary cards
   const realizedTotalInflow = Array.from(realizedByDate.values()).reduce(
     (sum, d) => sum + d.inflow,
@@ -160,6 +194,9 @@ export default async function CashFlowPage() {
           </p>
         </Card>
       </div>
+
+      {/* Weekly chart */}
+      <CashFlowChart data={chartData} title="Entradas vs Saídas por Semana" />
 
       {/* Realized table */}
       <div>

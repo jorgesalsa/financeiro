@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxograma - Sistema Financeiro Gerencial</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f8fafc;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 28px;
+      color: #1e293b;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .mermaid {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 1200px;
+      width: 100%;
+    }
+    .legend {
+      margin-top: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      max-width: 1200px;
+      width: 100%;
+    }
+    .legend-item {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .legend-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .legend-text h3 { font-size: 13px; color: #1e293b; margin-bottom: 4px; }
+    .legend-text p { font-size: 11px; color: #64748b; line-height: 1.4; }
+    .permissions {
+      margin-top: 32px;
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 1200px;
+      width: 100%;
+    }
+    .permissions h2 { font-size: 18px; color: #1e293b; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f1f5f9; padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; }
+    td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    .yes { color: #16a34a; font-weight: 600; }
+    .no { color: #dc2626; }
+    .tip {
+      margin-top: 32px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 1200px;
+      width: 100%;
+      font-size: 13px;
+      color: #1e40af;
+      line-height: 1.6;
+    }
+    .tip strong { display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<h1>Sistema Financeiro Gerencial</h1>
+<p class="subtitle">Fluxograma completo do processo de lancamentos</p>
+
+<div class="mermaid">
+flowchart TD
+    %% ===== ENTRADA =====
+    subgraph ENTRADA["📥 ENTRADA DE DADOS"]
+        direction LR
+        A1["🏦 Importacao OFX\n(Extrato Bancario)"]
+        A2["📄 Importacao CSV/Excel\n(Planilhas)"]
+        A3["📝 Lancamento Manual\n(Formulario)"]
+        A4["🔄 Recorrencia\n(Cron Job Automatico)"]
+        A5["🧾 NF-e / NFS-e\n(Notas Fiscais)"]
+    end
+
+    A1 --> B
+    A2 --> B
+    A3 --> B
+    A4 --> B
+    A5 --> B
+
+    %% ===== STAGING =====
+    B["📋 STAGING ENTRY\nStatus: PENDENTE\n<i>source: MANUAL | IMPORT | RECURRENCE</i>"]
+
+    B --> C{"🤖 Auto-Classificacao\n(Classification Rules)"}
+
+    C -->|"Regra encontrada\n(match por descricao)"| D["✨ AUTO_CLASSIFICADO\n<i>Conta + Centro de Custo\npreenchidos automaticamente</i>"]
+    C -->|"Sem regra\napplicavel"| E["⏳ PENDENTE\n<i>Aguardando classificacao\nmanual pelo usuario</i>"]
+
+    %% ===== CLASSIFICACAO MANUAL =====
+    E --> F["✏️ EDICAO MANUAL\n<i>Preencher campos obrigatorios:</i>\n• Conta Contabil *\n• Conta Bancaria *\n• Centro de Custo\n• Fornecedor/Cliente\n• Forma Pagamento"]
+    D --> G
+
+    F --> G{"✅ VALIDACAO\n<i>Verificacoes automaticas</i>"}
+
+    %% ===== VALIDACAO =====
+    G -->|"Conta Contabil vazia"| H["❌ ERRO\nConta contabil nao informada"]
+    G -->|"Conta Bancaria vazia"| I["❌ ERRO\nConta bancaria nao informada"]
+    G -->|"Duplicata detectada"| J["⚠️ ALERTA\nPossivel duplicidade"]
+    G -->|"Periodo bloqueado"| K["🔒 ERRO\nPeriodo bloqueado"]
+    G -->|"✅ Tudo OK"| L["✅ VALIDADO\n<i>validatedBy + validatedAt</i>"]
+
+    H --> F
+    I --> F
+    J --> F
+    K --> F
+
+    %% ===== REJEICAO =====
+    E --> M{"🚫 REJEITAR?"}
+    D --> M
+    M -->|"Sim + motivo"| N["🚫 REJEITADO\n<i>rejectionReason registrado</i>\nFim do fluxo"]
+
+    %% ===== INCORPORACAO =====
+    L --> O{"📤 INCORPORAR\n<i>(Controller/Admin)</i>"}
+
+    O --> P["📊 OFFICIAL ENTRY\n<i>Lancamento Oficial criado:</i>\n• Numero sequencial\n• Status: ABERTO\n• Categoria: A PAGAR ou A RECEBER\n• Data vencimento = data lancamento"]
+
+    O --> Q["✅ STAGING → INCORPORADO\n<i>Status final do staging</i>"]
+
+    %% ===== CICLO OFICIAL =====
+    P --> R{"💰 PAGAMENTO /\nRECEBIMENTO"}
+
+    R -->|"Valor parcial"| S["💵 PARCIALMENTE PAGO\n<i>settlementAmount atualizado</i>"]
+    R -->|"Valor total"| T["✅ PAGO / RECEBIDO\n<i>settledAt + settledBy</i>"]
+    R -->|"Cancelamento"| U["🚫 CANCELADO\n<i>cancelledAt + motivo</i>"]
+
+    S --> R
+
+    %% ===== CRON ATRASO =====
+    V["⏰ CRON: Verificacao\nde Vencimentos\n<i>/api/cron/overdue-check</i>"] -->|"Vencido e nao pago"| W["🔴 ATRASADO\n<i>Status automatico</i>"]
+    W --> R
+
+    %% ===== RECONCILIACAO =====
+    T --> X["🔗 RECONCILIACAO\nBancaria / Cartoes\n<i>Match com extrato importado</i>"]
+
+    %% ===== RELATORIOS =====
+    X --> Y["📊 RELATORIOS FINAIS"]
+    T --> Y
+
+    subgraph REPORTS["📈 RELATORIOS E CONTROLES"]
+        direction LR
+        Y1["DRE\nDemonstracao\nResultado"]
+        Y2["Fluxo de\nCaixa"]
+        Y3["Aging\nContas a Pagar\ne Receber"]
+        Y4["Orcado vs\nRealizado"]
+        Y5["Fechamento\nMensal"]
+        Y6["Auditoria\nLog"]
+    end
+
+    Y --> Y1
+    Y --> Y2
+    Y --> Y3
+    Y --> Y4
+    Y --> Y5
+    Y --> Y6
+
+    %% ===== ESTILOS =====
+    classDef entrada fill:#dbeafe,stroke:#3b82f6,stroke-width:2px,color:#1e3a5f
+    classDef pendente fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    classDef validado fill:#d1fae5,stroke:#10b981,stroke-width:2px,color:#064e3b
+    classDef rejeitado fill:#fecaca,stroke:#ef4444,stroke-width:2px,color:#7f1d1d
+    classDef oficial fill:#e0e7ff,stroke:#6366f1,stroke-width:2px,color:#312e81
+    classDef erro fill:#fee2e2,stroke:#ef4444,stroke-width:1px,color:#991b1b
+    classDef pago fill:#d1fae5,stroke:#059669,stroke-width:2px,color:#064e3b
+    classDef cancelado fill:#f3f4f6,stroke:#6b7280,stroke-width:1px,color:#374151
+    classDef report fill:#f0fdf4,stroke:#22c55e,stroke-width:1px,color:#166534
+    classDef cron fill:#fdf4ff,stroke:#a855f7,stroke-width:1px,color:#581c87
+
+    class A1,A2,A3,A4,A5 entrada
+    class B,E pendente
+    class D pendente
+    class F pendente
+    class L validado
+    class N rejeitado
+    class P,Q oficial
+    class H,I,J,K erro
+    class T,X pago
+    class S pendente
+    class U,W cancelado
+    class V cron
+    class Y,Y1,Y2,Y3,Y4,Y5,Y6 report
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#dbeafe">📥</div>
+    <div class="legend-text">
+      <h3>Entrada</h3>
+      <p>Importacao de arquivos (OFX, CSV, Excel, NF-e) ou lancamento manual</p>
+    </div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#fef3c7">⏳</div>
+    <div class="legend-text">
+      <h3>Staging (Pendente)</h3>
+      <p>Lancamento aguardando classificacao e validacao</p>
+    </div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#d1fae5">✅</div>
+    <div class="legend-text">
+      <h3>Validado / Pago</h3>
+      <p>Lancamento validado ou com pagamento confirmado</p>
+    </div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#e0e7ff">📊</div>
+    <div class="legend-text">
+      <h3>Oficial</h3>
+      <p>Lancamento incorporado ao livro oficial</p>
+    </div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#fecaca">🚫</div>
+    <div class="legend-text">
+      <h3>Rejeitado / Erro</h3>
+      <p>Lancamento rejeitado ou com erro de validacao</p>
+    </div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-icon" style="background:#fdf4ff">⏰</div>
+    <div class="legend-text">
+      <h3>Automatico (Cron)</h3>
+      <p>Processos executados automaticamente pelo sistema</p>
+    </div>
+  </div>
+</div>
+
+<div class="permissions">
+  <h2>Permissoes por Role</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Acao</th>
+        <th>VIEWER</th>
+        <th>OPERATOR</th>
+        <th>ANALYST</th>
+        <th>CONTROLLER</th>
+        <th>ADMIN</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Visualizar lancamentos</td>
+        <td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Criar / Editar lancamentos</td>
+        <td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Importar arquivos (OFX/CSV/Excel)</td>
+        <td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Validar lancamentos</td>
+        <td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Rejeitar lancamentos</td>
+        <td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Incorporar ao livro oficial</td>
+        <td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Bloquear/desbloquear periodos</td>
+        <td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td><td class="yes">✅</td>
+      </tr>
+      <tr>
+        <td>Gerenciar usuarios e configuracoes</td>
+        <td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="no">❌</td><td class="yes">✅</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="tip">
+  <strong>💡 Dica: Fluxo rapido para um lancamento completo</strong>
+  1. Crie o lancamento (manual ou importacao) → 2. Preencha Conta Contabil + Conta Bancaria → 3. Valide (✓) → 4. Incorpore (↑) → 5. Registre pagamento → 6. Reconcilie com extrato
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis',
+      padding: 20,
+      nodeSpacing: 30,
+      rankSpacing: 60,
+    },
+    themeVariables: {
+      fontFamily: 'Segoe UI, system-ui, sans-serif',
+      fontSize: '13px',
+    }
+  });
+</script>
+</body>
+</html>

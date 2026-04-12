@@ -35,7 +35,7 @@ import {
   XCircle,
   Upload,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type StagingEntry = {
@@ -99,12 +99,19 @@ interface StagingClientProps {
   statusCounts: Record<string, number>;
   userRole: Role;
   lookups: Lookups;
+  activeStatus: string;
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
-export function StagingClient({ data, statusCounts, userRole, lookups }: StagingClientProps) {
+export function StagingClient({ data, statusCounts, userRole, lookups, activeStatus, pagination }: StagingClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState("ALL");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<StagingEntry | null>(null);
@@ -121,10 +128,27 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
     setTimeout(() => setFeedback(null), 5000);
   }
 
-  const filteredData = useMemo(() => {
-    if (activeTab === "ALL") return data;
-    return data.filter((e) => e.status === activeTab);
-  }, [data, activeTab]);
+  // Data is already filtered server-side; use directly
+  const filteredData = data;
+
+  function navigateTo(newStatus?: string, newPage?: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newStatus !== undefined) {
+      if (newStatus === "ALL") {
+        params.delete("status");
+      } else {
+        params.set("status", newStatus);
+      }
+      // Reset to page 1 when changing status filter
+      params.delete("page");
+    }
+    if (newPage !== undefined && newPage > 1) {
+      params.set("page", String(newPage));
+    } else if (newPage !== undefined) {
+      params.delete("page");
+    }
+    router.push(`/staging?${params.toString()}`);
+  }
 
   const canIncorporate = hasMinRole(userRole, "CONTROLLER");
 
@@ -509,9 +533,9 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
         {STATUS_TABS.map((tab) => (
           <Button
             key={tab.key}
-            variant={activeTab === tab.key ? "default" : "outline"}
+            variant={activeStatus === tab.key ? "default" : "outline"}
             size="sm"
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => navigateTo(tab.key)}
           >
             {tab.label}
             <Badge variant="secondary" className="ml-2">
@@ -563,6 +587,13 @@ export function StagingClient({ data, statusCounts, userRole, lookups }: Staging
         data={filteredData}
         searchKey="description"
         searchPlaceholder="Buscar lancamento..."
+        serverPagination={{
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+          onPageChange: (newPage) => navigateTo(undefined, newPage),
+        }}
       />
 
       {/* ── Create dialog ── */}

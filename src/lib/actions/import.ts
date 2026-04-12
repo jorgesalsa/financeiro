@@ -9,6 +9,8 @@ import { parseCSV } from "@/lib/utils/csv-parser";
 import { parseExcel } from "@/lib/utils/excel-parser";
 import { classifyStagingEntries } from "@/lib/services/classification";
 import { parseNFeXMLRaw } from "@/lib/qive";
+import { normalizePagination, buildPaginatedResult, type PaginationParams } from "@/lib/utils/pagination";
+import { importRateLimit } from "@/lib/middleware/rate-limit";
 import crypto from "crypto";
 
 // RA09: Parser version tracking
@@ -21,6 +23,10 @@ function computeFileHash(content: string): string {
 
 export async function importBankStatement(formData: FormData) {
   const user = await getCurrentUser();
+
+  // Rate limiting: 10 imports per minute per tenant
+  importRateLimit(`import:${user.tenantId}`);
+
   const file = formData.get("file") as File;
   const bankAccountId = formData.get("bankAccountId") as string;
 
@@ -187,12 +193,19 @@ export async function importBankStatement(formData: FormData) {
 
 export async function importCardTransactions(formData: FormData) {
   const user = await getCurrentUser();
+  importRateLimit(`import:${user.tenantId}`);
+
   const file = formData.get("file") as File;
 
   if (!file) throw new Error("Arquivo é obrigatório");
 
   const buffer = await file.arrayBuffer();
   const fileName = file.name.toLowerCase();
+
+  // RA09: Compute file hash for card transactions
+  const rawContent = Buffer.from(buffer).toString("base64");
+  const fileHash = computeFileHash(rawContent);
+  const fileSize = file.size;
 
   let rows: Record<string, string>[] = [];
 
@@ -217,6 +230,12 @@ export async function importCardTransactions(formData: FormData) {
       processedRecords: 0,
       errorRecords: 0,
       importedById: user.id,
+      // RA09: Metadata
+      fileHash,
+      fileSize,
+      parserVersion: PARSER_VERSION,
+      sourceType: "CARD_TRANSACTION",
+      sourceName: file.name,
     },
   });
 
@@ -270,12 +289,13 @@ export async function importCardTransactions(formData: FormData) {
           tenantId: user.tenantId,
           importBatchId: batch.id,
           source: "IMPORT_CARD",
-          status: "PENDING",
+          status: "PARSED", // RA02+RA09: Start at PARSED after successful parse
           date: parseDate(dateStr),
           description: `${brand} ${desc}`.trim(),
           amount: parseAmount(netStr),
           type: "CREDIT",
           createdById: user.id,
+          importedAt: new Date(), // RA01: Track import timestamp
         },
       });
 
@@ -284,9 +304,20 @@ export async function importCardTransactions(formData: FormData) {
 
     const classResult = await classifyStagingEntries(user.tenantId, stagingIds);
 
+    // RA09: Compute totalAmount
+    const totalAmount = rows.reduce((sum, row) => {
+      const netStr = row["Valor Líquido"] || row["valor_liquido"] || "0";
+      return sum + (parseFloat(netStr.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0);
+    }, 0);
+
     await prisma.importBatch.update({
       where: { id: batch.id },
-      data: { status: "COMPLETED", processedRecords: rows.length, completedAt: new Date() },
+      data: {
+        status: "COMPLETED",
+        processedRecords: rows.length,
+        completedAt: new Date(),
+        totalAmount,
+      },
     });
 
     revalidatePath("/imports/card-transactions");
@@ -300,11 +331,18 @@ export async function importCardTransactions(formData: FormData) {
 
 export async function importTaxInvoices(formData: FormData) {
   const user = await getCurrentUser();
+  importRateLimit(`import:${user.tenantId}`);
+
   const file = formData.get("file") as File;
   if (!file) throw new Error("Arquivo é obrigatório");
 
   const buffer = await file.arrayBuffer();
   const fileName = file.name.toLowerCase();
+
+  // RA09: Compute file hash
+  const rawContent = Buffer.from(buffer).toString("base64");
+  const fileHash = computeFileHash(rawContent);
+  const fileSize = file.size;
 
   let rows: Record<string, string>[] = [];
   if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
@@ -328,6 +366,12 @@ export async function importTaxInvoices(formData: FormData) {
       processedRecords: 0,
       errorRecords: 0,
       importedById: user.id,
+      // RA09: Metadata
+      fileHash,
+      fileSize,
+      parserVersion: PARSER_VERSION,
+      sourceType: "TAX_INVOICE",
+      sourceName: file.name,
     },
   });
 
@@ -381,7 +425,7 @@ export async function importTaxInvoices(formData: FormData) {
           tenantId: user.tenantId,
           importBatchId: batch.id,
           source: "IMPORT_TAX_INVOICE",
-          status: "PENDING",
+          status: "PARSED", // RA02+RA09: Start at PARSED after successful parse
           date: issueDate,
           description: `NF ${invoiceNumber} - ${issuerName || cnpjIssuer}`.trim(),
           amount: totalValue,
@@ -389,6 +433,7 @@ export async function importTaxInvoices(formData: FormData) {
           counterpartCnpjCpf: cnpjIssuer || null,
           counterpartName: issuerName || null,
           createdById: user.id,
+          importedAt: new Date(), // RA01: Track import timestamp
         },
       });
 
@@ -402,9 +447,20 @@ export async function importTaxInvoices(formData: FormData) {
       classified = classResult.classified;
     }
 
+    // RA09: Compute totalAmount
+    const totalAmount = rows.reduce((sum, row) => {
+      const tv = row["Valor Total"] || row["valor_total"] || "0";
+      return sum + (parseFloat(tv.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0);
+    }, 0);
+
     await prisma.importBatch.update({
       where: { id: batch.id },
-      data: { status: "COMPLETED", processedRecords: rows.length, completedAt: new Date() },
+      data: {
+        status: "COMPLETED",
+        processedRecords: rows.length,
+        completedAt: new Date(),
+        totalAmount,
+      },
     });
 
     revalidatePath("/imports/tax-invoices");
@@ -418,6 +474,8 @@ export async function importTaxInvoices(formData: FormData) {
 
 export async function importTaxInvoicesXML(formData: FormData) {
   const user = await getCurrentUser();
+  importRateLimit(`import:${user.tenantId}`);
+
   const files = formData.getAll("files") as File[];
 
   if (!files || files.length === 0) throw new Error("Selecione ao menos um arquivo XML");
@@ -430,16 +488,33 @@ export async function importTaxInvoicesXML(formData: FormData) {
     }
   }
 
+  // RA09: Compute hash by combining all file contents
+  const combinedContent: string[] = [];
+  let totalFileSize = 0;
+  for (const file of files) {
+    combinedContent.push(`[${file.name}]`);
+    combinedContent.push(await file.text());
+    totalFileSize += file.size;
+  }
+  const fileHash = computeFileHash(combinedContent.join("\n"));
+  const combinedName = files.length === 1 ? files[0].name : `${files.length} arquivos XML`;
+
   const batch = await prisma.importBatch.create({
     data: {
       tenantId: user.tenantId,
       type: "TAX_INVOICE",
-      fileName: files.length === 1 ? files[0].name : `${files.length} arquivos XML`,
+      fileName: combinedName,
       status: "PROCESSING",
       totalRecords: files.length,
       processedRecords: 0,
       errorRecords: 0,
       importedById: user.id,
+      // RA09: Metadata
+      fileHash,
+      fileSize: totalFileSize,
+      parserVersion: PARSER_VERSION,
+      sourceType: "TAX_INVOICE_XML",
+      sourceName: combinedName,
     },
   });
 
@@ -526,7 +601,7 @@ export async function importTaxInvoicesXML(formData: FormData) {
               tenantId: user.tenantId,
               importBatchId: batch.id,
               source: "IMPORT_TAX_INVOICE",
-              status: "PENDING",
+              status: "PARSED", // RA02+RA09: Start at PARSED after successful parse
               date: parsed.issueDate,
               description: `NF ${parsed.invoiceNumber} - ${parsed.issuerName || parsed.cnpjIssuer}`.trim(),
               amount: parsed.totalValue,
@@ -534,6 +609,7 @@ export async function importTaxInvoicesXML(formData: FormData) {
               counterpartCnpjCpf: parsed.cnpjIssuer || null,
               counterpartName: parsed.issuerName || null,
               createdById: user.id,
+              importedAt: new Date(), // RA01: Track import timestamp
             },
           });
 
@@ -553,6 +629,13 @@ export async function importTaxInvoicesXML(formData: FormData) {
       classified = classResult.classified;
     }
 
+    // RA09: Compute totalAmount and persist parseErrors
+    const stagingList = await prisma.stagingEntry.findMany({
+      where: { id: { in: stagingIds } },
+      select: { amount: true },
+    });
+    const totalAmount = stagingList.reduce((sum, s) => sum + Number(s.amount), 0);
+
     await prisma.importBatch.update({
       where: { id: batch.id },
       data: {
@@ -561,6 +644,8 @@ export async function importTaxInvoicesXML(formData: FormData) {
         errorRecords: errors,
         totalRecords: processed + errors,
         completedAt: new Date(),
+        totalAmount,
+        parseErrors: errorMessages.length > 0 ? errorMessages : undefined,
       },
     });
 
@@ -581,11 +666,18 @@ export async function importTaxInvoicesXML(formData: FormData) {
 
 export async function importPurchaseInvoices(formData: FormData) {
   const user = await getCurrentUser();
+  importRateLimit(`import:${user.tenantId}`);
+
   const file = formData.get("file") as File;
   if (!file) throw new Error("Arquivo é obrigatório");
 
   const buffer = await file.arrayBuffer();
   const fileName = file.name.toLowerCase();
+
+  // RA09: Compute file hash
+  const rawContent = Buffer.from(buffer).toString("base64");
+  const fileHash = computeFileHash(rawContent);
+  const fileSize = file.size;
 
   let rows: Record<string, string>[] = [];
   if (fileName.endsWith(".csv") || fileName.endsWith(".txt")) {
@@ -609,6 +701,12 @@ export async function importPurchaseInvoices(formData: FormData) {
       processedRecords: 0,
       errorRecords: 0,
       importedById: user.id,
+      // RA09: Metadata
+      fileHash,
+      fileSize,
+      parserVersion: PARSER_VERSION,
+      sourceType: "PURCHASE_INVOICE",
+      sourceName: file.name,
     },
   });
 
@@ -660,7 +758,7 @@ export async function importPurchaseInvoices(formData: FormData) {
           tenantId: user.tenantId,
           importBatchId: batch.id,
           source: "IMPORT_PURCHASE_INVOICE",
-          status: "PENDING",
+          status: "PARSED", // RA02+RA09: Start at PARSED after successful parse
           date: parseDate(row["Data Emissão"] || row["data_emissao"] || ""),
           description:
             `NF ${row["Número NF"] || ""} - ${row["Nome Fornecedor"] || supplierCnpj}`.trim(),
@@ -670,6 +768,7 @@ export async function importPurchaseInvoices(formData: FormData) {
           counterpartName: row["Nome Fornecedor"] || null,
           supplierId: supplierId ?? null,
           createdById: user.id,
+          importedAt: new Date(), // RA01: Track import timestamp
         },
       });
 
@@ -678,9 +777,20 @@ export async function importPurchaseInvoices(formData: FormData) {
 
     const classResult = await classifyStagingEntries(user.tenantId, stagingIds);
 
+    // RA09: Compute totalAmount
+    const totalAmount = rows.reduce((sum, row) => {
+      const tv = row["Valor Total"] || row["valor_total"] || "0";
+      return sum + (parseFloat(tv.replace(/[^\d,.-]/g, "").replace(",", ".")) || 0);
+    }, 0);
+
     await prisma.importBatch.update({
       where: { id: batch.id },
-      data: { status: "COMPLETED", processedRecords: rows.length, completedAt: new Date() },
+      data: {
+        status: "COMPLETED",
+        processedRecords: rows.length,
+        completedAt: new Date(),
+        totalAmount,
+      },
     });
 
     revalidatePath("/imports/purchase-invoices");
@@ -692,15 +802,28 @@ export async function importPurchaseInvoices(formData: FormData) {
   }
 }
 
-export async function listImportBatches(type?: string) {
+export async function listImportBatches(params?: {
+  type?: string;
+  pagination?: PaginationParams;
+}) {
   const user = await getCurrentUser();
-  return prisma.importBatch.findMany({
-    where: {
-      tenantId: user.tenantId,
-      ...(type ? { type: type as any } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    include: { importedBy: { select: { name: true } } },
-    take: 50,
-  });
+  const { skip, take, page, pageSize } = normalizePagination(params?.pagination);
+
+  const where = {
+    tenantId: user.tenantId,
+    ...(params?.type ? { type: params.type as any } : {}),
+  };
+
+  const [data, total] = await Promise.all([
+    prisma.importBatch.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { importedBy: { select: { name: true } } },
+      skip,
+      take,
+    }),
+    prisma.importBatch.count({ where }),
+  ]);
+
+  return buildPaginatedResult(data, total, page, pageSize);
 }

@@ -32,7 +32,7 @@ import {
   Layers,
   Pencil,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const CATEGORY_LABELS: Record<string, string> = {
   PAYABLE: "Conta a Pagar",
@@ -81,21 +81,36 @@ interface EntriesClientProps {
   data: OfficialEntry[];
   bankAccounts: BankAccount[];
   paymentMethods: PaymentMethod[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  filters: {
+    category: string;
+    status: string;
+    startDate: string;
+    endDate: string;
+  };
 }
 
 export function EntriesClient({
   data,
   bankAccounts,
   paymentMethods,
+  pagination,
+  filters,
 }: EntriesClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Filters (initialized from server-side URL params)
+  const [statusFilter, setStatusFilter] = useState<string>(filters.status);
+  const [categoryFilter, setCategoryFilter] = useState<string>(filters.category);
+  const [dateFrom, setDateFrom] = useState(filters.startDate);
+  const [dateTo, setDateTo] = useState(filters.endDate);
 
   // Dialogs
   const [settleOpen, setSettleOpen] = useState(false);
@@ -103,21 +118,31 @@ export function EntriesClient({
   const [installmentOpen, setInstallmentOpen] = useState(false);
   const [installmentEntry, setInstallmentEntry] = useState<OfficialEntry | null>(null);
 
-  const filteredData = useMemo(() => {
-    return data.filter((entry) => {
-      if (statusFilter !== "ALL" && entry.status !== statusFilter) return false;
-      if (categoryFilter !== "ALL" && entry.category !== categoryFilter) return false;
-      if (dateFrom) {
-        const entryDate = new Date(entry.date).toISOString().split("T")[0];
-        if (entryDate < dateFrom) return false;
-      }
-      if (dateTo) {
-        const entryDate = new Date(entry.date).toISOString().split("T")[0];
-        if (entryDate > dateTo) return false;
-      }
-      return true;
-    });
-  }, [data, statusFilter, categoryFilter, dateFrom, dateTo]);
+  // Data is already filtered server-side
+  const filteredData = data;
+
+  function navigateWithFilters(overrides?: {
+    status?: string;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+  }) {
+    const p = new URLSearchParams();
+    const s = overrides?.status ?? statusFilter;
+    const c = overrides?.category ?? categoryFilter;
+    const sd = overrides?.startDate ?? dateFrom;
+    const ed = overrides?.endDate ?? dateTo;
+    const pg = overrides?.page ?? 1;
+
+    if (s && s !== "ALL") p.set("status", s);
+    if (c && c !== "ALL") p.set("category", c);
+    if (sd) p.set("startDate", sd);
+    if (ed) p.set("endDate", ed);
+    if (pg > 1) p.set("page", String(pg));
+
+    router.push(`/financial/entries?${p.toString()}`);
+  }
 
   async function handleSettle(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -415,14 +440,28 @@ export function EntriesClient({
           </Select>
         </div>
         <Button
+          variant="default"
+          size="sm"
+          className="col-span-1"
+          onClick={() => navigateWithFilters({
+            status: statusFilter,
+            category: categoryFilter,
+            startDate: dateFrom,
+            endDate: dateTo,
+          })}
+        >
+          Filtrar
+        </Button>
+        <Button
           variant="outline"
           size="sm"
-          className="col-span-2 sm:col-span-1"
+          className="col-span-1"
           onClick={() => {
             setStatusFilter("ALL");
             setCategoryFilter("ALL");
             setDateFrom("");
             setDateTo("");
+            navigateWithFilters({ status: "ALL", category: "ALL", startDate: "", endDate: "" });
           }}
         >
           Limpar Filtros
@@ -434,6 +473,13 @@ export function EntriesClient({
         data={filteredData}
         searchKey="description"
         searchPlaceholder="Buscar lancamento..."
+        serverPagination={{
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+          onPageChange: (newPage) => navigateWithFilters({ page: newPage }),
+        }}
       />
 
       {/* Settlement dialog */}

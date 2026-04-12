@@ -9,6 +9,7 @@ import { RevenueExpenseChart } from "@/components/dashboard/revenue-expense-char
 import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
 import { ExpenseBreakdownChart } from "@/components/dashboard/expense-breakdown-chart";
 import { AgingChart } from "@/components/dashboard/aging-chart";
+import { UpcomingPayments } from "@/components/dashboard/upcoming-payments";
 import {
   ArrowUpCircle,
   ArrowDownCircle,
@@ -52,7 +53,7 @@ async function DashboardContent() {
     );
   }
 
-  const { kpis, revenueExpense, cashFlow, expenseBreakdown, aging } = data;
+  const { kpis, revenueExpense, cashFlow, expenseBreakdown, aging, upcomingPayments } = data;
 
   return (
     <>
@@ -110,6 +111,7 @@ async function DashboardContent() {
         <CashFlowChart data={cashFlow} />
         <ExpenseBreakdownChart data={expenseBreakdown} />
         <AgingChart data={aging} />
+        <UpcomingPayments data={upcomingPayments} />
       </div>
     </>
   );

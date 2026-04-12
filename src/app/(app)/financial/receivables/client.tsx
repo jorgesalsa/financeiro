@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -86,13 +87,39 @@ const columns: ColumnDef<ReceivableEntry>[] = [
   },
 ];
 
-export function ReceivablesClient({ data }: { data: ReceivableEntry[] }) {
+interface ReceivablesClientProps {
+  data: ReceivableEntry[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function ReceivablesClient({ data, pagination }: ReceivablesClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function navigateTo(newPage: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(newPage));
+    router.push(`/financial/receivables?${params.toString()}`);
+  }
+
   return (
     <DataTable
       columns={columns}
       data={data}
       searchKey="description"
       searchPlaceholder="Buscar por descricao..."
+      serverPagination={{
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        totalPages: pagination.totalPages,
+        onPageChange: navigateTo,
+      }}
     />
   );
 }

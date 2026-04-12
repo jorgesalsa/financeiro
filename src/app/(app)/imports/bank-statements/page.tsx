@@ -5,7 +5,7 @@ import { BankStatementImportClient } from "./client";
 
 export default async function BankStatementsPage() {
   const [batches, bankAccounts] = await Promise.all([
-    listImportBatches("BANK_STATEMENT"),
+    listImportBatches({ type: "BANK_STATEMENT" }),
     listBankAccounts(),
   ]);
 
@@ -15,7 +15,7 @@ export default async function BankStatementsPage() {
         title="Importar Extrato Bancário"
         description="Importe extratos em formato OFX, CSV ou TXT"
       />
-      <BankStatementImportClient batches={batches as any} bankAccounts={bankAccounts as any} />
+      <BankStatementImportClient batches={batches.data as any} bankAccounts={bankAccounts as any} />
     </div>
   );
 }

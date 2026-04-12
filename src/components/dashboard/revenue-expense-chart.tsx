@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -69,15 +69,19 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
       <CardContent>
         <div className="h-[220px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart
+            <LineChart
               data={data}
               margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 11 }}
                 className="text-muted-foreground"
+                interval={data.length > 6 ? 1 : 0}
+                angle={data.length > 6 ? -45 : 0}
+                textAnchor={data.length > 6 ? "end" : "middle"}
+                height={data.length > 6 ? 50 : 30}
               />
               <YAxis
                 tick={{ fontSize: 12 }}
@@ -97,21 +101,25 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
                 iconType="circle"
                 iconSize={8}
               />
-              <Bar
+              <Line
+                type="monotone"
                 dataKey="receitas"
                 name="Receitas"
-                fill="#10b981"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                stroke="#10b981"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#10b981" }}
+                activeDot={{ r: 5 }}
               />
-              <Bar
+              <Line
+                type="monotone"
                 dataKey="despesas"
                 name="Despesas"
-                fill="#ef4444"
-                radius={[4, 4, 0, 0]}
-                maxBarSize={40}
+                stroke="#ef4444"
+                strokeWidth={2}
+                dot={{ r: 3, fill: "#ef4444" }}
+                activeDot={{ r: 5 }}
               />
-            </BarChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </CardContent>

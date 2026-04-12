@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { Sidebar } from "@/components/layout/sidebar";
+import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { AuthSessionProvider } from "./session-provider";
 import prisma from "@/lib/db";
 
@@ -48,7 +48,7 @@ export default async function AppLayout({
   return (
     <AuthSessionProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar
+        <SidebarShell
           userName={user.name || "Usuário"}
           tenantName={tenantName}
           currentTenantId={currentTenantId}

@@ -34,12 +34,22 @@ import {
   X,
 } from "lucide-react";
 
+export interface ServerPaginationProps {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
   pageSize?: number;
+  /** When provided, uses server-side pagination instead of client-side */
+  serverPagination?: ServerPaginationProps;
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,21 +170,27 @@ export function DataTable<TData, TValue>({
   searchKey,
   searchPlaceholder = "Filtrar...",
   pageSize = 50,
+  serverPagination,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+  const isServerPaginated = !!serverPagination;
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    // Only use client-side pagination when NOT server-paginated
+    ...(isServerPaginated ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     state: { sorting, columnFilters },
     initialState: { pagination: { pageSize } },
+    manualPagination: isServerPaginated,
+    ...(isServerPaginated ? { pageCount: serverPagination.totalPages } : {}),
   });
 
   const activeFilters = columnFilters.length;
@@ -271,32 +287,62 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-          {table.getFilteredRowModel().rows.length} registro(s)
-        </p>
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
-            {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      {isServerPaginated ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+            {serverPagination.total} registro(s) — pagina {serverPagination.page} de{" "}
+            {serverPagination.totalPages}
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => serverPagination.onPageChange(serverPagination.page - 1)}
+              disabled={serverPagination.page <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+              {serverPagination.page} / {serverPagination.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => serverPagination.onPageChange(serverPagination.page + 1)}
+              disabled={serverPagination.page >= serverPagination.totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+            {table.getFilteredRowModel().rows.length} registro(s)
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+              {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

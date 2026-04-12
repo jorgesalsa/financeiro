@@ -1,27 +1,19 @@
-import { getCurrentUser } from "@/lib/auth-utils";
+import { listInternalTransfers } from "@/lib/actions/transfer";
+import { listBankAccounts } from "@/lib/actions/master-data";
 import { PageHeader } from "@/components/layout/page-header";
-import prisma from "@/lib/db";
 import TransfersClient from "./client";
 
-export default async function TransfersPage() {
-  const user = await getCurrentUser();
+export default async function TransfersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const params = await searchParams;
+  const page = parseInt(params.page ?? "1", 10) || 1;
 
-  const [transfers, bankAccounts] = await Promise.all([
-    prisma.internalTransfer.findMany({
-      where: { tenantId: user.tenantId },
-      orderBy: { transferDate: "desc" },
-      include: {
-        sourceAccount: { select: { id: true, bankName: true, accountNumber: true } },
-        targetAccount: { select: { id: true, bankName: true, accountNumber: true } },
-        createdBy: { select: { name: true } },
-      },
-      take: 100,
-    }),
-    prisma.bankAccount.findMany({
-      where: { tenantId: user.tenantId, active: true },
-      select: { id: true, bankName: true, accountNumber: true, currentBalance: true },
-      orderBy: { bankName: "asc" },
-    }),
+  const [result, bankAccounts] = await Promise.all([
+    listInternalTransfers({ pagination: { page, pageSize: 50 } }),
+    listBankAccounts(),
   ]);
 
   return (
@@ -31,8 +23,14 @@ export default async function TransfersPage() {
         description="Transferências entre contas bancárias da empresa"
       />
       <TransfersClient
-        transfers={JSON.parse(JSON.stringify(transfers))}
+        transfers={JSON.parse(JSON.stringify(result.data))}
         bankAccounts={JSON.parse(JSON.stringify(bankAccounts))}
+        pagination={{
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
+        }}
       />
     </div>
   );

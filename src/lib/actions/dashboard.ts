@@ -16,12 +16,23 @@ export interface DashboardKpis {
   despesasTrend: number | null;
 }
 
+export interface UpcomingPayment {
+  id: string;
+  description: string;
+  amount: number;
+  paidAmount: number;
+  dueDate: string;
+  supplierName: string | null;
+  status: string;
+}
+
 export interface DashboardData {
   kpis: DashboardKpis;
   revenueExpense: RevenueExpenseDataPoint[];
   cashFlow: CashFlowDataPoint[];
   expenseBreakdown: ExpenseBreakdownDataPoint[];
   aging: AgingDataPoint[];
+  upcomingPayments: UpcomingPayment[];
 }
 
 const MONTH_NAMES_PT = [
@@ -50,7 +61,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-  const { start: sixMonthsAgo } = getMonthRange(5);
+  const { start: twelveMonthsAgo } = getMonthRange(11);
 
   // --- KPIs ---
   const [
@@ -125,12 +136,12 @@ export async function getDashboardData(): Promise<DashboardData | null> {
       ? ((totalDespesas - prevDespesas) / prevDespesas) * 100
       : null;
 
-  // --- Revenue vs Expense (last 6 months) ---
+  // --- Revenue vs Expense (last 12 months) ---
   // BUG-03 FIX: Exclude cancelled entries from charts
   const monthlyEntries = await prisma.officialEntry.findMany({
     where: {
       tenantId,
-      competenceDate: { gte: sixMonthsAgo, lte: endOfMonth },
+      competenceDate: { gte: twelveMonthsAgo, lte: endOfMonth },
       category: { in: ["RECEIVABLE", "PAYABLE"] },
       status: { not: "CANCELLED" },
     },
@@ -146,8 +157,8 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     { receitas: number; despesas: number }
   >();
 
-  // Pre-fill 6 months
-  for (let i = 5; i >= 0; i--) {
+  // Pre-fill 12 months
+  for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = getMonthLabel(d.getFullYear(), d.getMonth());
     monthlyMap.set(key, { receitas: 0, despesas: 0 });
@@ -277,6 +288,40 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     })
   );
 
+  // --- Upcoming Payments (next 7 days) ---
+  const sevenDaysFromNow = new Date();
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  const upcomingEntries = await prisma.officialEntry.findMany({
+    where: {
+      tenantId,
+      category: "PAYABLE",
+      status: { in: ["OPEN", "PARTIAL"] },
+      dueDate: { gte: now, lte: sevenDaysFromNow },
+    },
+    orderBy: { dueDate: "asc" },
+    take: 10,
+    select: {
+      id: true,
+      description: true,
+      amount: true,
+      paidAmount: true,
+      dueDate: true,
+      status: true,
+      supplier: { select: { name: true } },
+    },
+  });
+
+  const upcomingPayments: UpcomingPayment[] = upcomingEntries.map((e) => ({
+    id: e.id,
+    description: e.description,
+    amount: Number(e.amount),
+    paidAmount: Number(e.paidAmount ?? 0),
+    dueDate: e.dueDate?.toISOString() ?? "",
+    supplierName: e.supplier?.name ?? null,
+    status: e.status,
+  }));
+
   return {
     kpis: {
       totalReceitas,
@@ -290,5 +335,6 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     cashFlow,
     expenseBreakdown,
     aging,
+    upcomingPayments,
   };
 }
