@@ -55,8 +55,8 @@ export default async function AppLayout({
           tenants={tenants}
           unreadNotifications={unreadNotifications}
         />
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>
+        <main className="flex-1 min-w-0 overflow-y-auto bg-background">
+          <div className="mx-auto w-full max-w-[1600px] p-4 pt-14 lg:p-6 lg:pt-6">{children}</div>
         </main>
       </div>
     </AuthSessionProvider>

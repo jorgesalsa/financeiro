@@ -84,7 +84,7 @@ export function MultiTenantDashboardClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Summary row */}
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -190,15 +190,15 @@ export function MultiTenantDashboardClient({
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <CardTitle className="flex items-center gap-2">
-                    {tenant.tenantName}
+                  <CardTitle className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">{tenant.tenantName}</span>
                     {tenant.isDefault && (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="shrink-0 text-[10px]">
                         Atual
                       </Badge>
                     )}
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
                     {tenant.tenantCnpj || "CNPJ nao informado"}
                   </p>
                 </div>

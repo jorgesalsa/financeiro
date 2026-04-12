@@ -204,7 +204,7 @@ export function DataTable<TData, TValue>({
   }, [searchKey, table]);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-3 sm:space-y-4 min-w-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {searchKey && (
           <div className="relative w-full sm:max-w-sm">

@@ -11,7 +11,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = "glass", interactive = false, ...props }, ref) => {
     const base =
-      "rounded-2xl text-card-foreground transition-all duration-300 ease-out";
+      "rounded-2xl text-card-foreground transition-all duration-300 ease-out overflow-hidden min-w-0";
     const variants = {
       glass: "glass",
       "glass-strong": "glass-strong",
