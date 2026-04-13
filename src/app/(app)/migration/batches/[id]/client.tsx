@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -372,6 +373,89 @@ export function BatchDetailClient({
       {/* OVERVIEW SECTION */}
       {activeSection === "overview" && (
         <>
+          {/* Migration progress stepper */}
+          <MigrationStepper status={batch.status} />
+
+          {/* Next step action panel — always visible on overview */}
+          {(canValidate || canApproveAction || canProcess) && (
+            <Card className="border-2 border-primary/30 bg-primary/5">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary/70 mb-0.5">
+                      Proximo Passo
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {canValidate &&
+                        "Valide o lote para verificar se todos os dados estao corretos antes de aprovar."}
+                      {canApproveAction &&
+                        "O lote foi validado. Aprove para liberar o processamento da importacao."}
+                      {canProcess &&
+                        "O lote esta aprovado. Processe a importacao para criar os registros no sistema."}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {canValidate && (
+                      <Button onClick={handleValidate} disabled={isPending} size="sm">
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {isPending ? "Validando..." : "Validar Lote"}
+                      </Button>
+                    )}
+                    {canApproveAction && (
+                      <Button
+                        onClick={handleApprove}
+                        disabled={isPending}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Shield className="mr-2 h-4 w-4" />
+                        {isPending ? "Aprovando..." : "Aprovar Lote"}
+                      </Button>
+                    )}
+                    {canProcess && (
+                      <Button
+                        onClick={handleProcess}
+                        disabled={isPending}
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Play className="mr-2 h-4 w-4" />
+                        {isPending ? "Processando..." : "Processar Importacao"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Completed / cancelled / rolled-back status banner */}
+          {["COMPLETED", "COMPLETED_PARTIAL"].includes(batch.status) && (
+            <Card className="border-2 border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <CheckCircle className="h-6 w-6 text-green-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+                    Importacao concluida
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-400">
+                    {batch.processedRows} registros importados com sucesso
+                    {batch.errorRows > 0 && `, ${batch.errorRows} com erros`}
+                    {batch.skippedRows > 0 && `, ${batch.skippedRows} descartados`}.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {batch.status === "CANCELLED" && (
+            <Card className="border-2 border-gray-300 bg-gray-50 dark:border-gray-700 dark:bg-gray-950/30">
+              <CardContent className="p-4 flex items-center gap-3">
+                <XCircle className="h-6 w-6 text-gray-500 shrink-0" />
+                <p className="text-sm text-gray-700 dark:text-gray-300">Este lote foi cancelado.</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Batch info cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card>
@@ -935,5 +1019,87 @@ export function BatchDetailClient({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Migration stepper — visual progress indicator                      */
+/* ------------------------------------------------------------------ */
+const STEPPER_STEPS = [
+  { key: "UPLOADED", label: "Enviado" },
+  { key: "VALIDATED", label: "Validado" },
+  { key: "APPROVED", label: "Aprovado" },
+  { key: "PROCESSING", label: "Processando" },
+  { key: "COMPLETED", label: "Concluido" },
+] as const;
+
+const STATUS_TO_STEP_INDEX: Record<string, number> = {
+  DRAFT: -1,
+  UPLOADED: 0,
+  MAPPED: 0,
+  VALIDATED: 1,
+  REVIEWING: 1,
+  PENDING_APPROVAL: 1,
+  APPROVED: 2,
+  PROCESSING: 3,
+  COMPLETED: 4,
+  COMPLETED_PARTIAL: 4,
+  CANCELLED: -2,
+  ROLLED_BACK: -2,
+  FAILED: -2,
+};
+
+function MigrationStepper({ status }: { status: string }) {
+  const currentIdx = STATUS_TO_STEP_INDEX[status] ?? -1;
+
+  if (currentIdx === -2) return null; // cancelled / rolled-back
+
+  return (
+    <div className="flex items-center gap-0 w-full overflow-x-auto pb-1">
+      {STEPPER_STEPS.map((step, idx) => {
+        const isCompleted = idx < currentIdx;
+        const isCurrent = idx === currentIdx;
+        const isFuture = idx > currentIdx;
+
+        return (
+          <div key={step.key} className="flex items-center flex-1 min-w-0 last:flex-none">
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <div
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold border-2 transition-all",
+                  isCompleted && "bg-green-600 border-green-600 text-white",
+                  isCurrent && "bg-primary border-primary text-primary-foreground ring-4 ring-primary/20",
+                  isFuture && "bg-muted border-muted-foreground/30 text-muted-foreground"
+                )}
+              >
+                {isCompleted ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  idx + 1
+                )}
+              </div>
+              <span
+                className={cn(
+                  "text-[10px] font-medium whitespace-nowrap",
+                  isCompleted && "text-green-600",
+                  isCurrent && "text-primary font-bold",
+                  isFuture && "text-muted-foreground"
+                )}
+              >
+                {step.label}
+              </span>
+            </div>
+            {idx < STEPPER_STEPS.length - 1 && (
+              <div
+                className={cn(
+                  "flex-1 h-0.5 mx-1.5 rounded-full min-w-[20px]",
+                  idx < currentIdx ? "bg-green-500" : "bg-muted-foreground/20"
+                )}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
