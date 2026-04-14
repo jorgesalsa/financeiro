@@ -26,6 +26,7 @@ import {
   Tag,
   Layers,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { createTenant, updateTenant, deleteTenant } from "@/lib/actions/admin";
 import { switchTenant } from "@/lib/actions/tenant";
@@ -82,6 +83,8 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingTenant, setDeletingTenant] = useState<TenantInfo | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteHasEntries, setDeleteHasEntries] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -177,19 +180,42 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
     });
   }
 
+  function closeDeleteDialog() {
+    setDeletingTenant(null);
+    setDeleteError(null);
+    setDeleteHasEntries(false);
+  }
+
   async function handleDelete() {
     if (!deletingTenant) return;
+    setDeleteError(null);
     startTransition(async () => {
       const response = await deleteTenant(deletingTenant.tenantId);
       if (!response.ok) {
-        showFeedback("error", response.error);
-        setDeletingTenant(null);
+        // Keep the dialog open and show the error inline — if the company has
+        // financial entries, a "force" button will appear for a second confirmation.
+        setDeleteError(response.error);
+        setDeleteHasEntries(response.hasEntries ?? false);
         return;
       }
       showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
-      setDeletingTenant(null);
-      // Hard navigation so the server component re-fetches tenant list from DB
-      // (router.refresh() is unreliable inside startTransition in React 19)
+      closeDeleteDialog();
+      router.push("/settings/companies");
+    });
+  }
+
+  async function handleForceDelete() {
+    if (!deletingTenant) return;
+    setDeleteError(null);
+    startTransition(async () => {
+      const response = await deleteTenant(deletingTenant.tenantId, { force: true });
+      if (!response.ok) {
+        setDeleteError(response.error);
+        setDeleteHasEntries(false);
+        return;
+      }
+      showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
+      closeDeleteDialog();
       router.push("/settings/companies");
     });
   }
@@ -428,7 +454,7 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
       </div>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={!!deletingTenant} onOpenChange={(open) => !open && setDeletingTenant(null)}>
+      <Dialog open={!!deletingTenant} onOpenChange={(open) => !open && closeDeleteDialog()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
@@ -444,24 +470,63 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
             <p className="text-sm font-medium text-red-600">
               Esta ação é irreversível. Todos os dados da empresa (membros, configurações, lançamentos de staging, etc.) serão removidos permanentemente.
             </p>
+
+            {/* Inline error — shown when the first attempt fails */}
+            {deleteError && !deleteHasEntries && (
+              <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            {/* Entries blocker — second confirmation zone */}
+            {deleteHasEntries && (
+              <div className="rounded-md bg-red-50 border border-red-300 p-3 space-y-2">
+                <div className="flex items-center gap-2 text-red-700 font-semibold text-sm">
+                  <TriangleAlert className="h-4 w-4 shrink-0" />
+                  Empresa com lançamentos financeiros
+                </div>
+                <p className="text-sm text-red-600">{deleteError}</p>
+                <p className="text-xs text-red-500">
+                  Ao forçar a exclusão, todos os lançamentos, liquidações, staging e demais
+                  dados financeiros desta empresa serão apagados definitivamente.
+                </p>
+              </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDeletingTenant(null)}
+              onClick={closeDeleteDialog}
               disabled={isPending}
             >
               Cancelar
             </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isPending}
-            >
-              {isPending ? "Excluindo..." : "Excluir Empresa"}
-            </Button>
+
+            {/* Force-delete button — only visible after first attempt returned hasEntries */}
+            {deleteHasEntries && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleForceDelete}
+                disabled={isPending}
+                className="bg-red-700 hover:bg-red-800"
+              >
+                {isPending ? "Excluindo..." : "Forçar exclusão (apagar tudo)"}
+              </Button>
+            )}
+
+            {/* Normal delete button — hidden once we're in force-confirm mode */}
+            {!deleteHasEntries && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isPending}
+              >
+                {isPending ? "Excluindo..." : "Excluir Empresa"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

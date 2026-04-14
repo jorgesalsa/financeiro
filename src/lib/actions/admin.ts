@@ -339,11 +339,16 @@ export async function getTenantStats(tenantId: string) {
  * Permanently deletes an inactive tenant and all its data (cascade).
  * Requires ADMIN membership in the target tenant.
  * Rules: company must be inactive, must not be current/default tenant,
- * must not be the user's only tenant, and must have no official entries.
+ * must not be the user's only tenant.
+ *
+ * By default blocks if there are official financial entries (data-loss guard).
+ * Pass `options.force = true` to skip that check — the ADMIN explicitly
+ * confirmed a second time in the UI that all data should be wiped.
  */
 export async function deleteTenant(
-  tenantId: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+  tenantId: string,
+  options?: { force?: boolean }
+): Promise<{ ok: true } | { ok: false; error: string; hasEntries?: boolean }> {
   try {
     const user = await requireRole(["ADMIN"]);
 
@@ -383,13 +388,17 @@ export async function deleteTenant(
       };
     }
 
-    // Block if there are official financial entries (data loss prevention)
-    const entriesCount = await prisma.officialEntry.count({ where: { tenantId } });
-    if (entriesCount > 0) {
-      return {
-        ok: false,
-        error: `Não é possível excluir: a empresa possui ${entriesCount} lançamento(s) financeiro(s).`,
-      };
+    // Block if there are official financial entries (data-loss prevention).
+    // Skipped when force === true — the ADMIN confirmed a second time in the UI.
+    if (!options?.force) {
+      const entriesCount = await prisma.officialEntry.count({ where: { tenantId } });
+      if (entriesCount > 0) {
+        return {
+          ok: false,
+          error: `Esta empresa possui ${entriesCount} lançamento(s) financeiro(s). Confirme a exclusão forçada para apagar tudo permanentemente.`,
+          hasEntries: true,
+        };
+      }
     }
 
     // Hard delete — all child models cascade from Tenant (onDelete: Cascade in schema)
@@ -401,7 +410,7 @@ export async function deleteTenant(
       tableName: "Tenant",
       recordId: tenantId,
       action: "DELETE",
-      oldValues: { id: tenantId, name: tenant.name, active: false },
+      oldValues: { id: tenantId, name: tenant.name, active: false, forced: options?.force ?? false },
       newValues: null,
       userId: user.id,
       userEmail: user.email,
