@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   FileText,
   Shield,
+  ShieldCheck,
   Settings,
   Plug,
   Layers,
@@ -145,6 +146,7 @@ export const navigation: NavGroup[] = [
       { title: "Regras de Classificacao", href: "/settings/classification-rules", icon: SlidersHorizontal },
       { title: "Empresas", href: "/settings/companies", icon: Building2 },
       { title: "Usuários", href: "/settings/users", icon: UserCog },
+      { title: "Controle de Acesso", href: "/settings/access", icon: ShieldCheck },
     ],
   },
 ];

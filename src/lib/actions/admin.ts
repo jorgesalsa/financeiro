@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { hash } from "bcryptjs";
 import prisma from "@/lib/db";
-import { getCurrentUser, requireRole } from "@/lib/auth-utils";
+import { auth } from "@/lib/auth";
+import { getCurrentUser, requireRole, type SessionUser } from "@/lib/auth-utils";
 import { createAuditLog } from "@/lib/utils/audit";
 import type { Role } from "@/generated/prisma";
 
@@ -579,63 +581,74 @@ export async function cancelInvite(inviteId: string) {
 
 /**
  * Accepts an invite by token. Creates membership for the current user.
+ * Returns a result object instead of throwing so production builds
+ * can surface the real validation message to the client.
  */
-export async function acceptInvite(token: string) {
-  const user = await getCurrentUser();
-
-  const invite = await prisma.tenantInvite.findUnique({
-    where: { token },
-    include: { tenant: { select: { name: true } } },
-  });
-
-  if (!invite) {
-    throw new Error("Convite não encontrado");
+export async function acceptInvite(
+  token: string
+): Promise<
+  | { ok: true; tenantName: string }
+  | { ok: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user) {
+    return { ok: false, error: "Você precisa estar logado para aceitar um convite" };
   }
+  const user = session.user as SessionUser;
 
-  if (invite.status !== "PENDING") {
-    throw new Error("Este convite já foi utilizado ou cancelado");
-  }
-
-  if (new Date() > invite.expiresAt) {
-    await prisma.tenantInvite.update({
-      where: { id: invite.id },
-      data: { status: "EXPIRED" },
-    });
-    throw new Error("Este convite expirou");
-  }
-
-  // Check if user is already a member
-  const existingMembership = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: { userId: user.id, tenantId: invite.tenantId },
-    },
-  });
-  if (existingMembership) {
-    throw new Error("Você já é membro desta empresa");
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const membership = await tx.membership.create({
-      data: {
-        userId: user.id,
-        tenantId: invite.tenantId,
-        role: invite.role,
-        isDefault: false,
-      },
+  try {
+    const invite = await prisma.tenantInvite.findUnique({
+      where: { token },
+      include: { tenant: { select: { name: true } } },
     });
 
-    await tx.tenantInvite.update({
-      where: { id: invite.id },
-      data: { status: "ACCEPTED" },
+    if (!invite) {
+      return { ok: false, error: "Convite não encontrado ou já expirado" };
+    }
+
+    if (invite.status !== "PENDING") {
+      return { ok: false, error: "Este convite já foi utilizado ou cancelado" };
+    }
+
+    if (new Date() > invite.expiresAt) {
+      await prisma.tenantInvite.update({
+        where: { id: invite.id },
+        data: { status: "EXPIRED" },
+      });
+      return { ok: false, error: "Este convite expirou. Peça um novo convite ao administrador" };
+    }
+
+    // Check if already a member
+    const existingMembership = await prisma.membership.findUnique({
+      where: { userId_tenantId: { userId: user.id, tenantId: invite.tenantId } },
+    });
+    if (existingMembership) {
+      return { ok: false, error: "Você já é membro desta empresa" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.membership.create({
+        data: {
+          userId: user.id,
+          tenantId: invite.tenantId,
+          role: invite.role,
+          isDefault: false,
+        },
+      });
+      await tx.tenantInvite.update({
+        where: { id: invite.id },
+        data: { status: "ACCEPTED" },
+      });
     });
 
-    return membership;
-  });
+    revalidatePath("/dashboard");
+    revalidatePath("/settings/users");
 
-  revalidatePath("/dashboard");
-  revalidatePath("/admin/members");
-
-  return { membership: result, tenantName: invite.tenant.name };
+    return { ok: true, tenantName: invite.tenant.name };
+  } catch (err) {
+    console.error("[acceptInvite]", err);
+    return { ok: false, error: "Erro interno ao aceitar o convite. Tente novamente." };
+  }
 }
 
 /**
@@ -904,4 +917,405 @@ export async function generateCrossTenantNotifications() {
   revalidatePath("/dashboard");
 
   return { created: notifications.length };
+}
+
+// ─── User Registration ────────────────────────────────────────────────────────
+
+/**
+ * Registers a new user account. If an inviteToken is provided and valid,
+ * the user is immediately added as a member of the invited tenant.
+ */
+export async function registerUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  inviteToken?: string;
+}) {
+  if (!data.name?.trim()) throw new Error("Nome é obrigatório");
+  if (!data.email?.trim()) throw new Error("Email é obrigatório");
+  if (!data.password || data.password.length < 8)
+    throw new Error("Senha deve ter pelo menos 8 caracteres");
+
+  const existing = await prisma.user.findUnique({ where: { email: data.email } });
+  if (existing) throw new Error("Já existe uma conta com este email");
+
+  const hashedPassword = await hash(data.password, 12);
+
+  const user = await prisma.user.create({
+    data: {
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+      hashedPassword,
+    },
+  });
+
+  // Accept invite if token was provided
+  if (data.inviteToken) {
+    const invite = await prisma.tenantInvite.findUnique({
+      where: { token: data.inviteToken },
+      include: { tenant: { select: { name: true } } },
+    });
+
+    if (invite && invite.status === "PENDING" && new Date() <= invite.expiresAt) {
+      await prisma.$transaction([
+        prisma.membership.create({
+          data: {
+            userId: user.id,
+            tenantId: invite.tenantId,
+            role: invite.role,
+            isDefault: true,
+          },
+        }),
+        prisma.tenantInvite.update({
+          where: { id: invite.id },
+          data: { status: "ACCEPTED" },
+        }),
+      ]);
+    }
+  }
+
+  return { userId: user.id };
+}
+
+/**
+ * Returns the invite details for a given token (public — no auth required).
+ * Used to display who invited the user before they register/login.
+ */
+export async function getInviteDetails(token: string) {
+  const invite = await prisma.tenantInvite.findUnique({
+    where: { token },
+    include: {
+      tenant: { select: { name: true } },
+      createdBy: { select: { name: true, email: true } },
+    },
+  });
+
+  if (!invite) return null;
+  if (invite.status !== "PENDING") return { expired: true as const, status: invite.status };
+  if (new Date() > invite.expiresAt) return { expired: true as const, status: "EXPIRED" as const };
+
+  return {
+    expired: false as const,
+    tenantName: invite.tenant.name,
+    role: invite.role,
+    invitedBy: invite.createdBy?.name ?? invite.createdBy?.email ?? "Administrador",
+    email: invite.email,
+  };
+}
+
+// ─── Cross-Tenant Access Management ──────────────────────────────────────────
+
+/**
+ * Helper — verifies that the current user has ADMIN role in a specific tenant.
+ * Used by all cross-tenant mutation actions.
+ */
+async function requireAdminInTenant(targetTenantId: string) {
+  const user = await getCurrentUser();
+  const membership = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId: user.id, tenantId: targetTenantId } },
+  });
+  if (!membership || membership.role !== "ADMIN") {
+    throw new Error("Acesso negado: você não é administrador desta empresa");
+  }
+  return user;
+}
+
+/**
+ * Returns all tenants where the current user is ADMIN, with their full member
+ * list and pending invites — in a single efficient load (3 DB queries total).
+ * Used by the centralized /settings/access page.
+ */
+export async function listAllAdminTenantData() {
+  const user = await getCurrentUser();
+
+  // All tenants where user is ADMIN
+  const adminMemberships = await prisma.membership.findMany({
+    where: { userId: user.id, role: "ADMIN" },
+    include: {
+      tenant: {
+        select: { id: true, name: true, slug: true, active: true },
+      },
+    },
+    orderBy: { tenant: { name: "asc" } },
+  });
+
+  const adminTenantIds = adminMemberships.map((m) => m.tenantId);
+  if (adminTenantIds.length === 0) return [];
+
+  // Batch-fetch members + pending invites for all admin tenants in parallel
+  const [allMembers, allInvites] = await Promise.all([
+    prisma.membership.findMany({
+      where: { tenantId: { in: adminTenantIds } },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, image: true, createdAt: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.tenantInvite.findMany({
+      where: { tenantId: { in: adminTenantIds }, status: "PENDING" },
+      include: {
+        createdBy: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  // Group by tenantId
+  const membersByTenant: Record<string, typeof allMembers> = {};
+  const invitesByTenant: Record<string, typeof allInvites> = {};
+
+  for (const m of allMembers) {
+    if (!membersByTenant[m.tenantId]) membersByTenant[m.tenantId] = [];
+    membersByTenant[m.tenantId].push(m);
+  }
+  for (const i of allInvites) {
+    if (!invitesByTenant[i.tenantId]) invitesByTenant[i.tenantId] = [];
+    invitesByTenant[i.tenantId].push(i);
+  }
+
+  return adminMemberships.map((m) => ({
+    tenantId: m.tenantId,
+    tenant: m.tenant,
+    isCurrentTenant: m.isDefault,
+    members: membersByTenant[m.tenantId] ?? [],
+    invites: invitesByTenant[m.tenantId] ?? [],
+  }));
+}
+
+/**
+ * Cross-tenant version of inviteUserToTenant.
+ * Accepts an explicit tenantId. Verifies caller is ADMIN in that tenant.
+ */
+export async function inviteUserToTenantById(
+  tenantId: string,
+  email: string,
+  role: Role
+) {
+  const user = await requireAdminInTenant(tenantId);
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    include: { memberships: { where: { tenantId } } },
+  });
+
+  if (existingUser?.memberships.length) {
+    throw new Error("Este usuário já é membro desta empresa");
+  }
+
+  if (existingUser) {
+    const membership = await prisma.membership.create({
+      data: { userId: existingUser.id, tenantId, role, isDefault: false },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: existingUser.id,
+        tenantId,
+        type: "INVITE_RECEIVED",
+        title: "Novo acesso concedido",
+        message: `Você foi adicionado à empresa como ${role}`,
+        href: "/dashboard",
+      },
+    });
+
+    await createAuditLog({
+      tenantId,
+      tableName: "Membership",
+      recordId: membership.id,
+      action: "CREATE",
+      newValues: { email, role, directAdd: true },
+      userId: user.id,
+      userEmail: user.email,
+    });
+
+    revalidatePath("/settings/access");
+    revalidatePath("/settings/users");
+    return { type: "direct" as const, membership };
+  }
+
+  const existingInvite = await prisma.tenantInvite.findUnique({
+    where: { tenantId_email: { tenantId, email } },
+  });
+  if (existingInvite && existingInvite.status === "PENDING") {
+    throw new Error("Já existe um convite pendente para este email");
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const invite = await prisma.tenantInvite.upsert({
+    where: { tenantId_email: { tenantId, email } },
+    create: { tenantId, email, role, status: "PENDING", expiresAt, createdById: user.id },
+    update: { role, status: "PENDING", expiresAt, createdById: user.id },
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "TenantInvite",
+    recordId: invite.id,
+    action: "CREATE",
+    newValues: { email, role },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/settings/access");
+  revalidatePath("/settings/users");
+  return { type: "invite" as const, invite };
+}
+
+/**
+ * Cross-tenant version of updateMemberRole.
+ * Accepts an explicit tenantId. Verifies caller is ADMIN in that tenant.
+ */
+export async function updateMemberRoleById(
+  membershipId: string,
+  newRole: Role,
+  tenantId: string
+) {
+  const user = await requireAdminInTenant(tenantId);
+
+  const membership = await prisma.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+  });
+
+  if (membership.tenantId !== tenantId) {
+    throw new Error("Membro não pertence a esta empresa");
+  }
+  if (membership.userId === user.id) {
+    throw new Error("Você não pode alterar seu próprio cargo");
+  }
+
+  const oldRole = membership.role;
+  const updated = await prisma.membership.update({
+    where: { id: membershipId },
+    data: { role: newRole },
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "Membership",
+    recordId: membershipId,
+    action: "UPDATE",
+    oldValues: { role: oldRole },
+    newValues: { role: newRole },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/settings/access");
+  revalidatePath("/settings/users");
+  return updated;
+}
+
+/**
+ * Cross-tenant version of removeMember.
+ * Accepts an explicit tenantId. Verifies caller is ADMIN in that tenant.
+ */
+export async function removeMemberById(membershipId: string, tenantId: string) {
+  const user = await requireAdminInTenant(tenantId);
+
+  const membership = await prisma.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+    include: { user: { select: { email: true } } },
+  });
+
+  if (membership.tenantId !== tenantId) {
+    throw new Error("Membro não pertence a esta empresa");
+  }
+  if (membership.userId === user.id) {
+    throw new Error("Você não pode remover a si mesmo da empresa");
+  }
+
+  await prisma.membership.delete({ where: { id: membershipId } });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "Membership",
+    recordId: membershipId,
+    action: "DELETE",
+    oldValues: {
+      userId: membership.userId,
+      email: membership.user.email,
+      role: membership.role,
+    },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/settings/access");
+  revalidatePath("/settings/users");
+}
+
+/**
+ * Cross-tenant version of cancelInvite.
+ * Accepts an explicit tenantId. Verifies caller is ADMIN in that tenant.
+ */
+export async function cancelInviteById(inviteId: string, tenantId: string) {
+  const user = await requireAdminInTenant(tenantId);
+
+  const invite = await prisma.tenantInvite.findUniqueOrThrow({
+    where: { id: inviteId },
+  });
+
+  if (invite.tenantId !== tenantId) {
+    throw new Error("Convite não pertence a esta empresa");
+  }
+  if (invite.status !== "PENDING") {
+    throw new Error("Apenas convites pendentes podem ser cancelados");
+  }
+
+  const updated = await prisma.tenantInvite.update({
+    where: { id: inviteId },
+    data: { status: "CANCELLED" },
+  });
+
+  await createAuditLog({
+    tenantId,
+    tableName: "TenantInvite",
+    recordId: inviteId,
+    action: "UPDATE",
+    oldValues: { status: "PENDING" },
+    newValues: { status: "CANCELLED" },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/settings/access");
+  revalidatePath("/settings/users");
+  return updated;
+}
+
+/**
+ * Invite a single user to MULTIPLE tenants at once.
+ * Each company is processed independently — failures in one don't affect the others.
+ * Returns a per-company result array so the client can show partial successes.
+ */
+export async function inviteUserToMultipleTenants(
+  email: string,
+  selections: { tenantId: string; role: Role }[]
+) {
+  if (!selections.length) throw new Error("Selecione ao menos uma empresa");
+
+  const results = await Promise.allSettled(
+    selections.map(({ tenantId, role }) =>
+      inviteUserToTenantById(tenantId, email, role)
+    )
+  );
+
+  return results.map((r, i) => ({
+    tenantId: selections[i].tenantId,
+    ok: r.status === "fulfilled",
+    type: r.status === "fulfilled" ? r.value.type : undefined,
+    token:
+      r.status === "fulfilled" && r.value.type === "invite"
+        ? r.value.invite.token
+        : undefined,
+    error:
+      r.status === "rejected"
+        ? ((r.reason as Error)?.message ?? String(r.reason))
+        : undefined,
+  }));
 }
