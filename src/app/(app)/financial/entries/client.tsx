@@ -34,7 +34,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createDirectOfficialEntry } from "@/lib/actions/financial";
+import { createDirectOfficialEntry, cancelEntry } from "@/lib/actions/financial";
 
 const CATEGORY_LABELS: Record<string, string> = {
   PAYABLE: "Conta a Pagar",
@@ -148,6 +148,13 @@ export function EntriesClient({
 
   // Banner shown when arriving from staging incorporation
   const incorporatedCount = searchParams.get("incorporated");
+
+  // Feedback banner
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  function showFeedback(type: "success" | "error", message: string) {
+    setFeedback({ type, message });
+    setTimeout(() => setFeedback(null), 5000);
+  }
 
   // Dialogs
   const [settleOpen, setSettleOpen] = useState(false);
@@ -430,19 +437,17 @@ export function EntriesClient({
               <Button
                 variant="ghost"
                 size="icon"
-                title="Cancelar"
+                title="Cancelar lançamento"
+                disabled={isPending}
                 onClick={() => {
-                  if (confirm("Deseja cancelar este lancamento?")) {
+                  if (confirm("Deseja cancelar este lançamento? Os liquidamentos serão revertidos.")) {
                     startTransition(async () => {
-                      try {
-                        await fetch("/api/financial/cancel", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ entryId: entry.id }),
-                        });
-                      } catch {
-                        // Fallback
+                      const response = await cancelEntry(entry.id);
+                      if (!response.ok) {
+                        showFeedback("error", response.error);
+                        return;
                       }
+                      showFeedback("success", "Lançamento cancelado com sucesso.");
                       router.refresh();
                     });
                   }
@@ -459,6 +464,20 @@ export function EntriesClient({
 
   return (
     <>
+      {/* Feedback banner (cancel / errors) */}
+      {feedback && (
+        <div
+          className={`rounded-md p-3 text-sm font-medium flex items-center justify-between ${
+            feedback.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {feedback.message}
+          <button onClick={() => setFeedback(null)} className="ml-3 font-bold hover:opacity-70">✕</button>
+        </div>
+      )}
+
       {/* Staging incorporation success banner */}
       {incorporatedCount && (
         <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 flex items-center justify-between">

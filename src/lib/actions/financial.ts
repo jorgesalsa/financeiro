@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import prisma from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { settleEntry } from "@/lib/services/settlement";
@@ -158,69 +159,78 @@ export async function createInstallments(rawData: unknown) {
 }
 
 // BUG-08 FIX: Reverse bank balance when cancelling settled/partial entries
-export async function cancelEntry(id: string) {
-  const user = await getCurrentUser();
+export async function cancelEntry(
+  id: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
 
-  await prisma.$transaction(async (tx) => {
-    const entry = await tx.officialEntry.findFirstOrThrow({
-      where: { id, tenantId: user.tenantId },
-      include: { settlements: true },
+    await prisma.$transaction(async (tx) => {
+      const entry = await tx.officialEntry.findFirstOrThrow({
+        where: { id, tenantId: user.tenantId },
+        include: { settlements: true },
+      });
+
+      // Reverse each settlement's bank balance impact
+      for (const settlement of entry.settlements) {
+        const paymentAmount =
+          Number(settlement.amount) +
+          Number(settlement.interestAmount ?? 0) +
+          Number(settlement.fineAmount ?? 0) -
+          Number(settlement.discountAmount ?? 0);
+
+        // Reverse: if PAYABLE had decremented, now increment back (and vice versa)
+        const reverseChange =
+          entry.category === "PAYABLE" ? paymentAmount : -paymentAmount;
+
+        await tx.bankAccount.update({
+          where: { id: settlement.bankAccountId },
+          data: { currentBalance: { increment: reverseChange } },
+        });
+      }
+
+      // Delete settlements
+      if (entry.settlements.length > 0) {
+        await tx.settlement.deleteMany({
+          where: { officialEntryId: id },
+        });
+      }
+
+      // Cancel the entry and reset payment fields
+      await tx.officialEntry.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+          paidAmount: 0,
+          paidDate: null,
+          interestAmount: 0,
+          fineAmount: 0,
+          discountAmount: 0,
+        },
+      });
     });
 
-    // Reverse each settlement's bank balance impact
-    for (const settlement of entry.settlements) {
-      const paymentAmount =
-        Number(settlement.amount) +
-        Number(settlement.interestAmount ?? 0) +
-        Number(settlement.fineAmount ?? 0) -
-        Number(settlement.discountAmount ?? 0);
-
-      // Reverse: if PAYABLE had decremented, now increment back (and vice versa)
-      const reverseChange =
-        entry.category === "PAYABLE" ? paymentAmount : -paymentAmount;
-
-      await tx.bankAccount.update({
-        where: { id: settlement.bankAccountId },
-        data: { currentBalance: { increment: reverseChange } },
-      });
-    }
-
-    // Delete settlements
-    if (entry.settlements.length > 0) {
-      await tx.settlement.deleteMany({
-        where: { officialEntryId: id },
-      });
-    }
-
-    // Cancel the entry and reset payment fields
-    await tx.officialEntry.update({
-      where: { id },
-      data: {
-        status: "CANCELLED",
-        paidAmount: 0,
-        paidDate: null,
-        interestAmount: 0,
-        fineAmount: 0,
-        discountAmount: 0,
-      },
+    // SECURITY: Audit log for cancellation
+    await createAuditLog({
+      tenantId: user.tenantId,
+      tableName: "OfficialEntry",
+      recordId: id,
+      action: "UPDATE",
+      oldValues: { status: "OPEN/PARTIAL/SETTLED" },
+      newValues: { status: "CANCELLED", settlementsReversed: true },
+      userId: user.id,
+      userEmail: user.email,
     });
-  });
 
-  // SECURITY: Audit log for cancellation
-  await createAuditLog({
-    tenantId: user.tenantId,
-    tableName: "OfficialEntry",
-    recordId: id,
-    action: "UPDATE",
-    oldValues: { status: "OPEN/PARTIAL/SETTLED" },
-    newValues: { status: "CANCELLED", settlementsReversed: true },
-    userId: user.id,
-    userEmail: user.email,
-  });
-
-  revalidatePath("/financial/entries");
-  revalidatePath("/financial/payables");
-  revalidatePath("/financial/receivables");
+    revalidatePath("/financial/entries");
+    revalidatePath("/financial/payables");
+    revalidatePath("/financial/receivables");
+    return { ok: true };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    console.error("[cancelEntry]", err);
+    return { ok: false, error: (err as Error).message ?? "Erro ao cancelar lançamento" };
+  }
 }
 
 /**
