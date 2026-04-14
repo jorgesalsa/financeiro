@@ -74,10 +74,6 @@ type CompanySelection = {
   role: string;
 };
 
-type GeneratedLinkItem = {
-  tenantName: string;
-  link: string;
-};
 
 interface AccessClientProps {
   tenants: TenantAccessData[];
@@ -116,9 +112,9 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
     memberName: string;
   } | null>(null);
 
-  // Generated links dialog — supports multiple companies at once
-  const [generatedLinks, setGeneratedLinks] = useState<GeneratedLinkItem[] | null>(null);
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  // Generated invite link (single — multi-company invites share one token)
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Toast feedback
   const [feedback, setFeedback] = useState<{
@@ -153,7 +149,7 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
     });
   }
 
-  async function copyToClipboard(text: string, idx: number) {
+  async function copyToClipboard(text: string) {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -164,8 +160,8 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
       document.execCommand("copy");
       document.body.removeChild(input);
     }
-    setCopiedIdx(idx);
-    setTimeout(() => setCopiedIdx(null), 2000);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   function getInviteLink(token: string) {
@@ -218,7 +214,7 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
 
     startTransition(async () => {
       try {
-        const results = await inviteUserToMultipleTenants(
+        const result = await inviteUserToMultipleTenants(
           inviteEmail,
           selected.map((c) => ({ tenantId: c.tenantId, role: c.role as Role }))
         );
@@ -226,40 +222,22 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
         setMultiInviteOpen(false);
         setInviteEmail("");
 
-        const succeeded = results.filter((r) => r.ok);
-        const failed = results.filter((r) => !r.ok);
-
-        // Collect generated invite links
-        const links: GeneratedLinkItem[] = results
-          .filter((r) => r.ok && r.type === "invite" && r.token)
-          .map((r) => ({
-            tenantName:
-              tenants.find((t) => t.tenantId === r.tenantId)?.tenantName ?? r.tenantId,
-            link: getInviteLink(r.token!),
-          }));
-
-        if (links.length > 0) {
-          setGeneratedLinks(links);
-        }
-
-        if (failed.length === 0) {
-          const n = succeeded.length;
+        if (result.type === "direct") {
+          const n = result.count;
           showFeedback(
             "success",
-            `Convite${n !== 1 ? "s" : ""} enviado${n !== 1 ? "s" : ""} para ${n} empresa${n !== 1 ? "s" : ""}!`
+            `Usuário adicionado diretamente a ${n} empresa${n !== 1 ? "s" : ""}!`
           );
         } else {
-          showFeedback(
-            "error",
-            `${succeeded.length} convite${succeeded.length !== 1 ? "s" : ""} enviado${succeeded.length !== 1 ? "s" : ""}, ${failed.length} erro${failed.length !== 1 ? "s" : ""}: ${failed.map((f) => f.error).join("; ")}`
-          );
+          // Single link covering all selected companies
+          setGeneratedLink(getInviteLink(result.invite.token));
         }
 
         router.refresh();
       } catch (err: unknown) {
         showFeedback(
           "error",
-          err instanceof Error ? err.message : "Erro ao enviar convites"
+          err instanceof Error ? err.message : "Erro ao enviar convite"
         );
       }
     });
@@ -568,7 +546,7 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() =>
-                                          copyToClipboard(getInviteLink(invite.token), 0)
+                                          copyToClipboard(getInviteLink(invite.token))
                                         }
                                         title="Copiar link de convite"
                                       >
@@ -759,66 +737,51 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ── Generated invite links dialog ──────────────────────────────────── */}
+      {/* ── Generated invite link dialog ───────────────────────────────────── */}
       <Dialog
-        open={!!generatedLinks}
+        open={!!generatedLink}
         onOpenChange={(open) => {
-          if (!open) setGeneratedLinks(null);
+          if (!open) setGeneratedLink(null);
         }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LinkIcon className="h-4 w-4" />
-              {generatedLinks && generatedLinks.length === 1
-                ? "Link de convite gerado"
-                : `${generatedLinks?.length ?? 0} links de convite gerados`}
+              Link de convite gerado
             </DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Copie e envie cada link para o usuário convidado. Os links expiram em{" "}
+              Copie e envie este link para o usuário. Ao acessar, ele será adicionado a
+              todas as empresas selecionadas de uma só vez. O link expira em{" "}
               <strong>7 dias</strong>.
             </p>
-
-            <div className="space-y-3">
-              {generatedLinks?.map((item, idx) => (
-                <div key={idx} className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {item.tenantName}
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={item.link}
-                      className="flex-1 rounded-md border border-input bg-muted px-3 py-2 text-xs font-mono truncate"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(item.link, idx)}
-                      title="Copiar link"
-                    >
-                      {copiedIdx === idx ? (
-                        <Check className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={generatedLink ?? ""}
+                className="flex-1 rounded-md border border-input bg-muted px-3 py-2 text-xs font-mono truncate"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generatedLink && copyToClipboard(generatedLink)}
+              >
+                {copied ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
             </div>
-
             <p className="text-xs text-muted-foreground">
               Se o usuário ainda não tem conta, o link também criará a conta automaticamente.
             </p>
           </div>
-
           <DialogFooter>
-            <Button onClick={() => setGeneratedLinks(null)}>Fechar</Button>
+            <Button onClick={() => setGeneratedLink(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

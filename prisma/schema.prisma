@@ -99,6 +99,7 @@ enum StagingStatus {
 enum EntryStatus {
   OPEN
   PARTIAL
+  OVERDUE
   SETTLED
   CANCELLED
 }
@@ -323,10 +324,11 @@ model Tenant {
   auditLogs          AuditLog[]
   pluggyConnections  PluggyConnection[]
   qiveConnections    QiveConnection[]
-  internalTransfers  InternalTransfer[]
-  validationRules    ValidationRule[]
-  migrationBatches   MigrationBatch[]
-  migrationMappings  MigrationMapping[]
+  internalTransfers    InternalTransfer[]
+  validationRules      ValidationRule[]
+  migrationBatches     MigrationBatch[]
+  migrationMappings    MigrationMapping[]
+  purchaseInvoiceItems PurchaseInvoiceItem[]
 }
 
 model User {
@@ -432,6 +434,7 @@ model ChartOfAccount {
   parentId   String?
   isAnalytic Boolean     @default(true)
   active     Boolean     @default(true)
+  deletedAt  DateTime?
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
@@ -465,6 +468,7 @@ model Supplier {
   zipCode           String?
   notes             String?
   active            Boolean  @default(true)
+  deletedAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -495,6 +499,7 @@ model Customer {
   zipCode           String?
   notes             String?
   active            Boolean  @default(true)
+  deletedAt         DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -545,6 +550,7 @@ model BankAccount {
   initialBalance Decimal
   currentBalance Decimal
   active         Boolean         @default(true)
+  deletedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -828,6 +834,7 @@ model PurchaseInvoice {
 
 model PurchaseInvoiceItem {
   id                String  @id @default(cuid())
+  tenantId          String
   purchaseInvoiceId String
   productId         String
   quantity          Decimal
@@ -836,9 +843,11 @@ model PurchaseInvoiceItem {
   icmsValue         Decimal @default(0)
   ipiValue          Decimal @default(0)
 
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
   product         Product         @relation(fields: [productId], references: [id])
 
+  @@index([tenantId])
   @@index([purchaseInvoiceId])
   @@index([productId])
 }
@@ -1287,16 +1296,20 @@ enum InviteStatus {
 }
 
 model TenantInvite {
-  id        String       @id @default(cuid())
-  tenantId  String
-  email     String
-  role      Role         @default(VIEWER)
-  status    InviteStatus @default(PENDING)
-  token     String       @unique @default(cuid())
-  expiresAt DateTime
+  id          String       @id @default(cuid())
+  tenantId    String
+  email       String
+  role        Role         @default(VIEWER)
+  status      InviteStatus @default(PENDING)
+  token       String       @unique @default(cuid())
+  expiresAt   DateTime
   createdById String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  /// Extra companies bundled in a multi-company invite.
+  /// Format: [{ tenantId: string, role: string }]
+  /// All entries are processed when the invite is accepted.
+  additionalTenants Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy User   @relation("InviteCreatedBy", fields: [createdById], references: [id])

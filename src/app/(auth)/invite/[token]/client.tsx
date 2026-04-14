@@ -50,7 +50,11 @@ export function AcceptInviteClient({
         setError(result.error);
         return;
       }
-      setSuccess(`Você agora é membro de ${result.tenantName}!`);
+      setSuccess(
+        result.additionalCount > 0
+          ? `Você agora é membro de ${result.tenantName} e mais ${result.additionalCount} empresa${result.additionalCount !== 1 ? "s" : ""}!`
+          : `Você agora é membro de ${result.tenantName}!`
+      );
       // Refresh JWT so new membership appears in session
       await update();
       setTimeout(() => { window.location.href = "/dashboard"; }, 1500);

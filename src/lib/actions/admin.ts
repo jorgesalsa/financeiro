@@ -587,7 +587,7 @@ export async function cancelInvite(inviteId: string) {
 export async function acceptInvite(
   token: string
 ): Promise<
-  | { ok: true; tenantName: string }
+  | { ok: true; tenantName: string; additionalCount: number }
   | { ok: false; error: string }
 > {
   const session = await auth();
@@ -641,10 +641,30 @@ export async function acceptInvite(
       });
     });
 
+    // Process additional companies bundled in a multi-company invite
+    type ExtraItem = { tenantId: string; role: string };
+    const extras = Array.isArray(invite.additionalTenants)
+      ? (invite.additionalTenants as ExtraItem[]).filter(
+          (e) => e && typeof e.tenantId === "string"
+        )
+      : [];
+
+    if (extras.length > 0) {
+      await Promise.allSettled(
+        extras.map(({ tenantId, role }) =>
+          prisma.membership.upsert({
+            where: { userId_tenantId: { userId: user.id, tenantId } },
+            create: { userId: user.id, tenantId, role: role as Role, isDefault: false },
+            update: {}, // already a member — keep as-is
+          })
+        )
+      );
+    }
+
     revalidatePath("/dashboard");
     revalidatePath("/settings/users");
 
-    return { ok: true, tenantName: invite.tenant.name };
+    return { ok: true, tenantName: invite.tenant.name, additionalCount: extras.length };
   } catch (err) {
     console.error("[acceptInvite]", err);
     return { ok: false, error: "Erro interno ao aceitar o convite. Tente novamente." };
@@ -1290,32 +1310,128 @@ export async function cancelInviteById(inviteId: string, tenantId: string) {
 
 /**
  * Invite a single user to MULTIPLE tenants at once.
- * Each company is processed independently — failures in one don't affect the others.
- * Returns a per-company result array so the client can show partial successes.
+ *
+ * If the user already has an account → adds them directly to every selected company.
+ * If the user is new → creates ONE TenantInvite (primary company) with the remaining
+ * companies stored in `additionalTenants`. Accepting the single link creates all
+ * memberships at once.
  */
 export async function inviteUserToMultipleTenants(
   email: string,
   selections: { tenantId: string; role: Role }[]
-) {
+): Promise<
+  | { type: "direct"; count: number }
+  | { type: "invite"; invite: { token: string } }
+> {
   if (!selections.length) throw new Error("Selecione ao menos uma empresa");
 
-  const results = await Promise.allSettled(
-    selections.map(({ tenantId, role }) =>
-      inviteUserToTenantById(tenantId, email, role)
-    )
-  );
+  // Verify caller is ADMIN in every selected tenant
+  const user = await getCurrentUser();
+  await Promise.all(selections.map(({ tenantId }) => requireAdminInTenant(tenantId)));
 
-  return results.map((r, i) => ({
-    tenantId: selections[i].tenantId,
-    ok: r.status === "fulfilled",
-    type: r.status === "fulfilled" ? r.value.type : undefined,
-    token:
-      r.status === "fulfilled" && r.value.type === "invite"
-        ? r.value.invite.token
-        : undefined,
-    error:
-      r.status === "rejected"
-        ? ((r.reason as Error)?.message ?? String(r.reason))
-        : undefined,
-  }));
+  // Check whether this email belongs to an existing user
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      memberships: {
+        where: { tenantId: { in: selections.map((s) => s.tenantId) } },
+        select: { tenantId: true },
+      },
+    },
+  });
+
+  if (existingUser) {
+    // Direct add — skip tenants where the user is already a member
+    const alreadyIn = new Set(existingUser.memberships.map((m) => m.tenantId));
+    const toAdd = selections.filter((s) => !alreadyIn.has(s.tenantId));
+
+    if (!toAdd.length) {
+      throw new Error("Este usuário já é membro de todas as empresas selecionadas");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const { tenantId, role } of toAdd) {
+        await tx.membership.create({
+          data: { userId: existingUser.id, tenantId, role, isDefault: false },
+        });
+        await tx.notification.create({
+          data: {
+            userId: existingUser.id,
+            tenantId,
+            type: "INVITE_RECEIVED",
+            title: "Novo acesso concedido",
+            message: `Você foi adicionado à empresa como ${role}`,
+            href: "/dashboard",
+          },
+        });
+      }
+    });
+
+    await Promise.allSettled(
+      toAdd.map(({ tenantId, role }) =>
+        createAuditLog({
+          tenantId,
+          tableName: "Membership",
+          recordId: email,
+          action: "CREATE",
+          newValues: { email, role, directAdd: true },
+          userId: user.id,
+          userEmail: user.email,
+        })
+      )
+    );
+
+    revalidatePath("/settings/access");
+    revalidatePath("/settings/users");
+    return { type: "direct", count: toAdd.length };
+  }
+
+  // New user — create ONE invite: primary company + extras in additionalTenants
+  const [primary, ...rest] = selections;
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const existing = await prisma.tenantInvite.findUnique({
+    where: { tenantId_email: { tenantId: primary.tenantId, email } },
+  });
+  if (existing?.status === "PENDING") {
+    throw new Error("Já existe um convite pendente para este email nesta empresa");
+  }
+
+  const additionalTenants = rest.length
+    ? rest.map((s) => ({ tenantId: s.tenantId, role: s.role }))
+    : undefined;
+
+  const invite = await prisma.tenantInvite.upsert({
+    where: { tenantId_email: { tenantId: primary.tenantId, email } },
+    create: {
+      tenantId: primary.tenantId,
+      email,
+      role: primary.role,
+      status: "PENDING",
+      expiresAt,
+      createdById: user.id,
+      additionalTenants: additionalTenants ?? [],
+    },
+    update: {
+      role: primary.role,
+      status: "PENDING",
+      expiresAt,
+      createdById: user.id,
+      additionalTenants: additionalTenants ?? [],
+    },
+  });
+
+  await createAuditLog({
+    tenantId: primary.tenantId,
+    tableName: "TenantInvite",
+    recordId: invite.id,
+    action: "CREATE",
+    newValues: { email, role: primary.role, additionalCount: rest.length },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/settings/access");
+  revalidatePath("/settings/users");
+  return { type: "invite", invite: { token: invite.token } };
 }
