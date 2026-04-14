@@ -50,8 +50,18 @@ export function TenantSwitcher({
     setSwitching(true);
     try {
       await switchTenant(tenantId);
-      // Update the JWT session to reflect the new default tenant
-      await update();
+
+      // Refresh the JWT with the new default tenant.
+      // Retry up to 3 times with a short backoff in case of DB replica lag
+      // (serverless environments like Vercel+Neon can have a brief propagation
+      // delay between the write in switchTenant and the read in the JWT callback).
+      let updatedSession = await update();
+      for (let attempt = 1; attempt < 3; attempt++) {
+        if ((updatedSession?.user as any)?.tenantId === tenantId) break;
+        await new Promise((r) => setTimeout(r, 300 * attempt));
+        updatedSession = await update();
+      }
+
       setOpen(false);
       // Full page reload to refresh all server components with new tenant context
       window.location.href = "/dashboard";
