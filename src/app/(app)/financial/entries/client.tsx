@@ -448,7 +448,9 @@ export function EntriesClient({
                         return;
                       }
                       showFeedback("success", "Lançamento cancelado com sucesso.");
-                      router.refresh();
+                      // navigateWithFilters() uses router.push (reliable in React 19)
+                      // instead of router.refresh() which can fail inside startTransition
+                      navigateWithFilters();
                     });
                   }
                 }}
@@ -537,6 +539,7 @@ export function EntriesClient({
             <option value="ALL">Todos</option>
             <option value="OPEN">Em aberto</option>
             <option value="PARTIAL">Parcial</option>
+            <option value="OVERDUE">Vencido</option>
             <option value="SETTLED">Liquidado</option>
             <option value="CANCELLED">Cancelado</option>
           </Select>

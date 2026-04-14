@@ -130,12 +130,13 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
           cnpj: newCnpj.replace(/\D/g, ""),
           slug: newSlug,
         });
-        showFeedback("success", "Empresa criada com sucesso!");
         setCreateOpen(false);
         setNewName("");
         setNewCnpj("");
         setNewSlug("");
-        router.refresh();
+        // router.push forces a real navigation so the server component re-renders
+        // with fresh DB data (router.refresh() is unreliable inside startTransition)
+        router.push("/settings/companies");
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao criar empresa");
       }
@@ -152,9 +153,8 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
           cnpj: editCnpj.replace(/\D/g, ""),
           active: editActive,
         });
-        showFeedback("success", "Empresa atualizada com sucesso!");
         closeEdit();
-        router.refresh();
+        router.push("/settings/companies");
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao atualizar empresa");
       }
@@ -184,9 +184,10 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
         setDeletingTenant(null);
         return;
       }
-      showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
       setDeletingTenant(null);
-      router.refresh();
+      // Hard navigation so the server component re-fetches tenant list from DB
+      // (router.refresh() is unreliable inside startTransition in React 19)
+      router.push("/settings/companies");
     });
   }
 
