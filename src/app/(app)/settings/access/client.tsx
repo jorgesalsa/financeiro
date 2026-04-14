@@ -202,6 +202,13 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
     );
   }
 
+  function toggleSelectAll() {
+    const shouldSelectAll = !companySelections.every((c) => c.selected);
+    setCompanySelections((prev) =>
+      prev.map((c) => ({ ...c, selected: shouldSelectAll }))
+    );
+  }
+
   // ─── Action Handlers ───────────────────────────────────────────────────────
 
   async function handleMultiInvite(e: React.FormEvent<HTMLFormElement>) {
@@ -317,6 +324,8 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
 
   // Count of selected companies in the open invite dialog
   const selectedCount = companySelections.filter((c) => c.selected).length;
+  const allSelected = companySelections.length > 0 && selectedCount === companySelections.length;
+  const someSelected = selectedCount > 0 && !allSelected;
 
   return (
     <>
@@ -631,6 +640,29 @@ export function AccessClient({ tenants, currentUserId }: AccessClientProps) {
                 Selecione as empresas e defina o cargo em cada uma.
               </p>
               <div className="rounded-md border border-border divide-y max-h-64 overflow-y-auto">
+                {/* Select-all row */}
+                <div className="flex items-center gap-3 px-3 py-2.5 bg-muted/20">
+                  <input
+                    type="checkbox"
+                    id="select-all-companies"
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someSelected;
+                    }}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-border accent-primary cursor-pointer shrink-0"
+                  />
+                  <label
+                    htmlFor="select-all-companies"
+                    className="flex-1 text-sm font-medium cursor-pointer text-muted-foreground"
+                  >
+                    Selecionar todas
+                  </label>
+                  <span className="text-xs text-muted-foreground w-32 text-right">
+                    {selectedCount} de {companySelections.length}
+                  </span>
+                </div>
+
                 {companySelections.map((company) => (
                   <div
                     key={company.tenantId}
