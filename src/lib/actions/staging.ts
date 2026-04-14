@@ -32,6 +32,7 @@ export async function listStagingEntries(params?: {
         supplier: { select: { name: true } },
         customer: { select: { name: true } },
         bankAccount: { select: { bankName: true, accountNumber: true } },
+        validatedBy: { select: { name: true, email: true } },
       },
       skip,
       take,

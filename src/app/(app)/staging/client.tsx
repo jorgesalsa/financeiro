@@ -57,6 +57,10 @@ type StagingEntry = {
   chartOfAccountId: string | null;
   costCenterId: string | null;
   bankAccountId: string | null;
+  // Approval / rejection info
+  rejectionReason: string | null;
+  validatedAt: string | Date | null;
+  validatedBy: { name: string | null; email: string } | null;
   supplierId: string | null;
   customerId: string | null;
   paymentMethodId: string | null;
@@ -444,11 +448,43 @@ export function StagingClient({ data, statusCounts, userRole, lookups, activeSta
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge className={STAGING_STATUS_COLORS[row.original.status]}>
-          {STAGING_STATUS_LABELS[row.original.status]}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const entry = row.original;
+        const badge = (
+          <Badge className={STAGING_STATUS_COLORS[entry.status]}>
+            {STAGING_STATUS_LABELS[entry.status]}
+          </Badge>
+        );
+        // Show rejection reason below the badge
+        if (entry.status === "REJECTED" && entry.rejectionReason) {
+          return (
+            <div className="flex flex-col gap-0.5">
+              {badge}
+              <span
+                className="text-xs text-red-600 max-w-[180px] truncate"
+                title={entry.rejectionReason}
+              >
+                {entry.rejectionReason}
+              </span>
+            </div>
+          );
+        }
+        // Show who validated below the badge
+        if (
+          (entry.status === "VALIDATED" || entry.status === "INCORPORATED") &&
+          entry.validatedBy
+        ) {
+          return (
+            <div className="flex flex-col gap-0.5">
+              {badge}
+              <span className="text-xs text-muted-foreground">
+                {entry.validatedBy.name ?? entry.validatedBy.email}
+              </span>
+            </div>
+          );
+        }
+        return badge;
+      },
       filterFn: (row, _col, value: string) => {
         const label = STAGING_STATUS_LABELS[row.original.status] ?? row.original.status;
         return label.toLowerCase().includes(value.toLowerCase());

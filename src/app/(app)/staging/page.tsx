@@ -70,6 +70,13 @@ export default async function StagingPage({
     bankAccount: entry.bankAccount
       ? { bankName: entry.bankAccount.bankName, accountNumber: entry.bankAccount.accountNumber }
       : null,
+    rejectionReason: entry.rejectionReason ?? null,
+    validatedAt: entry.validatedAt
+      ? (entry.validatedAt instanceof Date ? entry.validatedAt.toISOString() : String(entry.validatedAt))
+      : null,
+    validatedBy: entry.validatedBy
+      ? { name: entry.validatedBy.name ?? null, email: entry.validatedBy.email }
+      : null,
   }));
 
   return (
