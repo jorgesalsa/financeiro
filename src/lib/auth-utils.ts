@@ -15,19 +15,37 @@ export type SessionUser = {
 };
 
 /**
- * Re-reads the current default membership from the DB for the given user.
+ * Re-reads the current active membership from the DB for the given user.
  *
- * Using React's cache() ensures this query is deduplicated within the same
- * React render cycle: page.tsx files that call multiple data-fetching server
- * actions in parallel (via Promise.all) will all share a single DB round-trip.
+ * Priority: membership with isDefault=true → any membership (edge-case fallback
+ * for users whose membership was created with isDefault=false, e.g. via direct
+ * invite of an existing user).
  *
- * SECURITY: The JWT tenantId can become stale after a tenant switch due to a
- * race condition between update() completing and the page reload firing. Always
- * trusting the DB prevents cross-tenant data leakage.
+ * Using React's cache() deduplicates calls within the same React render cycle:
+ * page.tsx files that call multiple data-fetching server actions in parallel
+ * (via Promise.all) share a single DB round-trip.
+ *
+ * SECURITY: The JWT tenantId can become stale after a tenant switch. Always
+ * reading from DB prevents cross-tenant data leakage.
  */
 const getDefaultMembership = cache(async (userId: string) => {
-  return prisma.membership.findFirst({
+  // Try the explicitly-defaulted membership first
+  const defaultMembership = await prisma.membership.findFirst({
     where: { userId, isDefault: true },
+    select: {
+      tenantId: true,
+      role: true,
+      tenant: { select: { slug: true } },
+    },
+  });
+  if (defaultMembership) return defaultMembership;
+
+  // Safety-net: user has memberships but none is marked isDefault=true.
+  // (happens when an existing user is invited directly — membership is created
+  // with isDefault=false and they have no other company). Return the first one
+  // so the app stays functional instead of redirecting to login.
+  return prisma.membership.findFirst({
+    where: { userId },
     select: {
       tenantId: true,
       role: true,

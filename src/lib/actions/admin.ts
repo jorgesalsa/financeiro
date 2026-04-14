@@ -477,12 +477,19 @@ export async function inviteUserToTenant(email: string, role: Role) {
 
   // If user exists in system, add membership directly
   if (existingUser) {
+    // If the user has no isDefault=true membership yet, make this one the default
+    // (prevents getCurrentUser from failing to find a default membership)
+    const hasDefault = await prisma.membership.findFirst({
+      where: { userId: existingUser.id, isDefault: true },
+      select: { id: true },
+    });
+
     const membership = await prisma.membership.create({
       data: {
         userId: existingUser.id,
         tenantId,
         role,
-        isDefault: false,
+        isDefault: !hasDefault,
       },
     });
 
@@ -1160,8 +1167,14 @@ export async function inviteUserToTenantById(
   }
 
   if (existingUser) {
+    // Set isDefault:true if the user has no default membership yet
+    const hasDefault = await prisma.membership.findFirst({
+      where: { userId: existingUser.id, isDefault: true },
+      select: { id: true },
+    });
+
     const membership = await prisma.membership.create({
-      data: { userId: existingUser.id, tenantId, role, isDefault: false },
+      data: { userId: existingUser.id, tenantId, role, isDefault: !hasDefault },
     });
 
     await prisma.notification.create({
@@ -1384,10 +1397,16 @@ export async function inviteUserToMultipleTenants(
       throw new Error("Este usuário já é membro de todas as empresas selecionadas");
     }
 
+    // If user has no default membership yet, mark the first new one as default
+    const hasDefault = await prisma.membership.findFirst({
+      where: { userId: existingUser.id, isDefault: true },
+      select: { id: true },
+    });
+
     await prisma.$transaction(async (tx) => {
-      for (const { tenantId, role } of toAdd) {
+      for (const [index, { tenantId, role }] of toAdd.entries()) {
         await tx.membership.create({
-          data: { userId: existingUser.id, tenantId, role, isDefault: false },
+          data: { userId: existingUser.id, tenantId, role, isDefault: !hasDefault && index === 0 },
         });
         await tx.notification.create({
           data: {
