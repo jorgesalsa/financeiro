@@ -132,6 +132,7 @@ export const RULE_ACTION_TYPE_LABELS: Record<RuleActionType, string> = {
 export const ENTRY_STATUS_LABELS: Record<EntryStatus, string> = {
   OPEN: "Em aberto",
   PARTIAL: "Parcial",
+  OVERDUE: "Vencido",
   SETTLED: "Liquidado",
   CANCELLED: "Cancelado",
 };
@@ -139,6 +140,7 @@ export const ENTRY_STATUS_LABELS: Record<EntryStatus, string> = {
 export const ENTRY_STATUS_COLORS: Record<EntryStatus, string> = {
   OPEN: "bg-yellow-100 text-yellow-800",
   PARTIAL: "bg-orange-100 text-orange-800",
+  OVERDUE: "bg-red-100 text-red-800",
   SETTLED: "bg-green-100 text-green-800",
   CANCELLED: "bg-gray-100 text-gray-800",
 };
