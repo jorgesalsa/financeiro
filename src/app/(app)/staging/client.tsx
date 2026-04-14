@@ -173,37 +173,37 @@ export function StagingClient({ data, statusCounts, userRole, lookups, activeSta
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     startTransition(async () => {
-      try {
-        const results = await validateEntries(ids);
-        const failed = results.filter((r: any) => !r.valid);
-        if (failed.length > 0) {
-          const allErrors = failed.flatMap((f: any) => f.errors);
-          showFeedback("error", `Validacao falhou: ${allErrors.join(", ")}`);
-        } else {
-          showFeedback("success", `${results.length} lancamento(s) validado(s) com sucesso!`);
-        }
-        setSelectedIds(new Set());
-        router.refresh();
-      } catch (err: any) {
-        showFeedback("error", err.message || "Erro ao validar");
+      const response = await validateEntries(ids);
+      if (!response.ok) {
+        showFeedback("error", response.error);
+        return;
       }
+      const failed = response.results.filter((r) => !r.valid);
+      if (failed.length > 0) {
+        const allErrors = failed.flatMap((f) => f.errors);
+        showFeedback("error", `Validacao falhou: ${allErrors.join(", ")}`);
+      } else {
+        showFeedback("success", `${response.results.length} lancamento(s) validado(s) com sucesso!`);
+      }
+      setSelectedIds(new Set());
+      router.refresh();
     });
   }
 
   async function handleValidateSingle(id: string) {
     startTransition(async () => {
-      try {
-        const results = await validateEntries([id]);
-        const result = results[0] as any;
-        if (!result.valid) {
-          showFeedback("error", `Validacao falhou: ${result.errors.join(", ")}`);
-        } else {
-          showFeedback("success", "Lancamento validado com sucesso!");
-        }
-        router.refresh();
-      } catch (err: any) {
-        showFeedback("error", err.message || "Erro ao validar");
+      const response = await validateEntries([id]);
+      if (!response.ok) {
+        showFeedback("error", response.error);
+        return;
       }
+      const result = response.results[0];
+      if (!result.valid) {
+        showFeedback("error", `Validacao falhou: ${result.errors.join(", ")}`);
+      } else {
+        showFeedback("success", "Lancamento validado com sucesso!");
+      }
+      router.refresh();
     });
   }
 
@@ -217,30 +217,30 @@ export function StagingClient({ data, statusCounts, userRole, lookups, activeSta
       return;
     }
     startTransition(async () => {
-      try {
-        const results = await incorporateEntries(ids);
-        showFeedback("success", `${results.length} lancamento(s) incorporado(s) com sucesso!`);
-        setSelectedIds(new Set());
-        router.refresh();
-      } catch (err: any) {
-        showFeedback("error", err.message || "Erro ao incorporar");
+      const response = await incorporateEntries(ids);
+      if (!response.ok) {
+        showFeedback("error", response.error);
+        return;
       }
+      setSelectedIds(new Set());
+      // Navigate to official entries without date filters so all incorporated entries are visible
+      router.push(`/financial/entries?incorporated=${response.results.length}`);
     });
   }
 
   async function handleReject() {
     if (!rejectingId || !rejectReason.trim()) return;
     startTransition(async () => {
-      try {
-        await rejectStagingEntry(rejectingId, rejectReason);
-        showFeedback("success", "Lancamento rejeitado");
-        setRejectOpen(false);
-        setRejectingId(null);
-        setRejectReason("");
-        router.refresh();
-      } catch (err: any) {
-        showFeedback("error", err.message || "Erro ao rejeitar");
+      const response = await rejectStagingEntry(rejectingId, rejectReason);
+      if (!response.ok) {
+        showFeedback("error", response.error);
+        return;
       }
+      showFeedback("success", "Lancamento rejeitado");
+      setRejectOpen(false);
+      setRejectingId(null);
+      setRejectReason("");
+      router.refresh();
     });
   }
 

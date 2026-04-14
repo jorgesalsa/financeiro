@@ -8,7 +8,9 @@ export function formatCurrency(value: number | string): string {
 
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("pt-BR").format(d);
+  // Force UTC so that dates stored as midnight UTC (e.g. "2026-03-02T00:00:00.000Z")
+  // are displayed as-is regardless of the browser's local timezone.
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(d);
 }
 
 export function formatDateTime(date: Date | string): string {

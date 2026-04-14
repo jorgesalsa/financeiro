@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import prisma from "@/lib/db";
 import { getCurrentUser, requireRole } from "@/lib/auth-utils";
 import { createAuditLog } from "@/lib/utils/audit";
@@ -101,55 +102,83 @@ export async function updateStagingEntry(id: string, data: StagingEntryInput) {
   return entry;
 }
 
-export async function validateEntries(ids: string[]) {
-  const user = await getCurrentUser();
-  const results = [];
+export async function validateEntries(ids: string[]): Promise<
+  | { ok: true; results: { id: string; valid: boolean; errors: string[] }[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const user = await getCurrentUser();
+    const results: { id: string; valid: boolean; errors: string[] }[] = [];
 
-  for (const id of ids) {
-    const result = await validateStagingEntry(id, user.tenantId, user.id, user.email);
-    results.push({ id, ...result });
+    for (const id of ids) {
+      const result = await validateStagingEntry(id, user.tenantId, user.id, user.email);
+      results.push({ id, ...result });
+    }
+
+    revalidatePath("/staging");
+    return { ok: true, results };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    console.error("[validateEntries]", err);
+    return { ok: false, error: (err as Error).message ?? "Erro ao validar lançamentos" };
   }
-
-  revalidatePath("/staging");
-  return results;
 }
 
 // BUG-10 FIX: Use state machine for reject transitions
-export async function rejectStagingEntry(id: string, reason: string) {
-  const user = await getCurrentUser();
+export async function rejectStagingEntry(
+  id: string,
+  reason: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentUser();
 
-  const entry = await prisma.stagingEntry.findFirstOrThrow({
-    where: { id, tenantId: user.tenantId },
-  });
+    const entry = await prisma.stagingEntry.findFirstOrThrow({
+      where: { id, tenantId: user.tenantId },
+    });
 
-  // Validate state machine transition
-  assertValidTransition(entry.status, "REJECTED");
+    // Validate state machine transition
+    assertValidTransition(entry.status, "REJECTED");
 
-  await prisma.stagingEntry.update({
-    where: { id },
-    data: { status: "REJECTED", rejectionReason: reason },
-  });
+    await prisma.stagingEntry.update({
+      where: { id },
+      data: { status: "REJECTED", rejectionReason: reason },
+    });
 
-  await createAuditLog({
-    tenantId: user.tenantId,
-    tableName: "StagingEntry",
-    recordId: id,
-    action: "UPDATE",
-    oldValues: { status: entry.status },
-    newValues: { status: "REJECTED", rejectionReason: reason },
-    userId: user.id,
-    userEmail: user.email,
-  });
+    await createAuditLog({
+      tenantId: user.tenantId,
+      tableName: "StagingEntry",
+      recordId: id,
+      action: "UPDATE",
+      oldValues: { status: entry.status },
+      newValues: { status: "REJECTED", rejectionReason: reason },
+      userId: user.id,
+      userEmail: user.email,
+    });
 
-  revalidatePath("/staging");
+    revalidatePath("/staging");
+    return { ok: true };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    console.error("[rejectStagingEntry]", err);
+    return { ok: false, error: (err as Error).message ?? "Erro ao rejeitar lançamento" };
+  }
 }
 
-export async function incorporateEntries(ids: string[]) {
-  const user = await requireRole(["ADMIN", "CONTROLLER"]);
-  stagingBatchRateLimit(`staging-batch:${user.tenantId}`);
+export async function incorporateEntries(ids: string[]): Promise<
+  | { ok: true; results: { id: string; sequentialNumber: number }[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const user = await requireRole(["ADMIN", "CONTROLLER"]);
+    stagingBatchRateLimit(`staging-batch:${user.tenantId}`);
 
-  const results = await incorporateStagingEntries(ids, user.tenantId, user.id, user.email);
-  revalidatePath("/staging");
-  revalidatePath("/financial/entries");
-  return results;
+    const results = await incorporateStagingEntries(ids, user.tenantId, user.id, user.email);
+    revalidatePath("/staging");
+    revalidatePath("/financial/entries");
+    return { ok: true, results };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    console.error("[incorporateEntries]", err);
+    return { ok: false, error: (err as Error).message ?? "Erro ao incorporar lançamentos" };
+  }
 }

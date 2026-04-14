@@ -25,8 +25,10 @@ export async function listOfficialEntries(filters?: {
   if (filters?.status) where.status = filters.status as any;
   if (filters?.startDate || filters?.endDate) {
     where.date = {};
-    if (filters?.startDate) where.date.gte = new Date(filters.startDate);
-    if (filters?.endDate) where.date.lte = new Date(filters.endDate);
+    // Parse startDate as UTC start-of-day (e.g. "2026-04-01" → 2026-04-01T00:00:00.000Z)
+    if (filters?.startDate) where.date.gte = new Date(filters.startDate + "T00:00:00.000Z");
+    // Parse endDate as UTC end-of-day so the entire day is included
+    if (filters?.endDate) where.date.lte = new Date(filters.endDate + "T23:59:59.999Z");
   }
 
   const [data, total] = await Promise.all([
@@ -219,4 +221,86 @@ export async function cancelEntry(id: string) {
   revalidatePath("/financial/entries");
   revalidatePath("/financial/payables");
   revalidatePath("/financial/receivables");
+}
+
+/**
+ * Create an OfficialEntry directly (skip staging).
+ * Requires ADMIN or CONTROLLER role.
+ */
+export async function createDirectOfficialEntry(data: {
+  date: string;
+  competenceDate?: string;
+  description: string;
+  amount: number;
+  transactionType: "CREDIT" | "DEBIT";
+  category: "PAYABLE" | "RECEIVABLE" | "TRANSFER" | "ADJUSTMENT";
+  chartOfAccountId: string;
+  bankAccountId: string;
+  costCenterId?: string;
+  supplierId?: string;
+  customerId?: string;
+  paymentMethodId?: string;
+  dueDate?: string;
+  notes?: string;
+}) {
+  const user = await getCurrentUser();
+
+  // SECURITY: Only ADMIN and CONTROLLER can create direct entries
+  const allowedRoles = ["ADMIN", "CONTROLLER"];
+  if (!allowedRoles.includes(user.memberRole)) {
+    throw new Error("Permissao negada. Apenas Admin e Controller podem criar lancamentos diretos.");
+  }
+
+  // Generate next sequential number
+  const lastEntry = await prisma.officialEntry.findFirst({
+    where: { tenantId: user.tenantId },
+    orderBy: { sequentialNumber: "desc" },
+    select: { sequentialNumber: true },
+  });
+  const nextSeq = (lastEntry?.sequentialNumber ?? 0) + 1;
+
+  const entry = await prisma.officialEntry.create({
+    data: {
+      tenantId: user.tenantId,
+      sequentialNumber: nextSeq,
+      date: new Date(data.date),
+      competenceDate: data.competenceDate ? new Date(data.competenceDate) : new Date(data.date),
+      description: data.description,
+      amount: data.amount,
+      type: data.transactionType,
+      category: data.category,
+      status: "OPEN",
+      chartOfAccountId: data.chartOfAccountId,
+      bankAccountId: data.bankAccountId,
+      costCenterId: data.costCenterId || null,
+      supplierId: data.supplierId || null,
+      customerId: data.customerId || null,
+      paymentMethodId: data.paymentMethodId || null,
+      dueDate: data.dueDate ? new Date(data.dueDate) : null,
+      paidAmount: 0,
+      movementType: data.transactionType === "CREDIT" ? "ENTRY" : "EXIT",
+      financialNature: "OPERATIONAL",
+      classificationStatus: "CLASSIFIED",
+      incorporatedById: user.id,
+      incorporatedAt: new Date(),
+      version: 1,
+    },
+  });
+
+  await createAuditLog({
+    tenantId: user.tenantId,
+    tableName: "OfficialEntry",
+    recordId: entry.id,
+    action: "CREATE",
+    oldValues: null,
+    newValues: { description: data.description, amount: data.amount, source: "DIRECT" },
+    userId: user.id,
+    userEmail: user.email,
+  });
+
+  revalidatePath("/financial/entries");
+  revalidatePath("/financial/payables");
+  revalidatePath("/financial/receivables");
+
+  return entry;
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { hash } from "bcryptjs";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import prisma from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getCurrentUser, requireRole, type SessionUser } from "@/lib/auth-utils";
@@ -335,61 +336,86 @@ export async function getTenantStats(tenantId: string) {
 }
 
 /**
- * Soft-deletes a tenant by setting active = false.
+ * Permanently deletes an inactive tenant and all its data (cascade).
  * Requires ADMIN membership in the target tenant.
- * Cannot delete: current tenant, only tenant, or already inactive.
+ * Rules: company must be inactive, must not be current/default tenant,
+ * must not be the user's only tenant, and must have no official entries.
  */
-export async function deleteTenant(tenantId: string) {
-  const user = await requireRole(["ADMIN"]);
+export async function deleteTenant(
+  tenantId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await requireRole(["ADMIN"]);
 
-  // Verify ADMIN membership in target tenant
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: user.id, tenantId } },
-  });
-  if (!membership || membership.role !== "ADMIN") {
-    throw new Error("Acesso negado: você não é administrador desta empresa");
+    // Verify ADMIN membership in target tenant
+    const membership = await prisma.membership.findUnique({
+      where: { userId_tenantId: { userId: user.id, tenantId } },
+    });
+    if (!membership || membership.role !== "ADMIN") {
+      return { ok: false, error: "Acesso negado: você não é administrador desta empresa" };
+    }
+
+    // Block if it's the user's current (default) tenant
+    if (membership.isDefault) {
+      return {
+        ok: false,
+        error: "Não é possível excluir a empresa ativa. Troque para outra empresa primeiro.",
+      };
+    }
+
+    // Block if it's the user's only tenant
+    const membershipCount = await prisma.membership.count({
+      where: { userId: user.id },
+    });
+    if (membershipCount <= 1) {
+      return { ok: false, error: "Não é possível excluir sua única empresa" };
+    }
+
+    const tenant = await prisma.tenant.findUniqueOrThrow({
+      where: { id: tenantId },
+    });
+
+    // Must be inactive — deactivate first via Editar
+    if (tenant.active) {
+      return {
+        ok: false,
+        error: "Desative a empresa antes de excluir. Clique em Editar e desmarque 'Ativa'.",
+      };
+    }
+
+    // Block if there are official financial entries (data loss prevention)
+    const entriesCount = await prisma.officialEntry.count({ where: { tenantId } });
+    if (entriesCount > 0) {
+      return {
+        ok: false,
+        error: `Não é possível excluir: a empresa possui ${entriesCount} lançamento(s) financeiro(s).`,
+      };
+    }
+
+    // Hard delete — all child models cascade from Tenant (onDelete: Cascade in schema)
+    await prisma.tenant.delete({ where: { id: tenantId } });
+
+    // Audit on current user's active tenant (deleted tenant no longer exists)
+    await createAuditLog({
+      tenantId: user.tenantId,
+      tableName: "Tenant",
+      recordId: tenantId,
+      action: "DELETE",
+      oldValues: { id: tenantId, name: tenant.name, active: false },
+      newValues: null,
+      userId: user.id,
+      userEmail: user.email,
+    });
+
+    revalidatePath("/", "layout");
+    revalidatePath("/dashboard");
+    revalidatePath("/settings/companies");
+    return { ok: true };
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    console.error("[deleteTenant]", err);
+    return { ok: false, error: (err as Error).message ?? "Erro ao excluir empresa" };
   }
-
-  // Block if it's the user's current (default) tenant
-  if (membership.isDefault) {
-    throw new Error("Não é possível excluir a empresa ativa. Troque para outra empresa primeiro.");
-  }
-
-  // Block if it's the user's only tenant
-  const membershipCount = await prisma.membership.count({
-    where: { userId: user.id },
-  });
-  if (membershipCount <= 1) {
-    throw new Error("Não é possível excluir sua única empresa");
-  }
-
-  const tenant = await prisma.tenant.findUniqueOrThrow({
-    where: { id: tenantId },
-  });
-
-  if (!tenant.active) {
-    throw new Error("Esta empresa já está desativada");
-  }
-
-  await prisma.tenant.update({
-    where: { id: tenantId },
-    data: { active: false },
-  });
-
-  await createAuditLog({
-    tenantId,
-    tableName: "Tenant",
-    recordId: tenantId,
-    action: "UPDATE",
-    oldValues: { active: true },
-    newValues: { active: false, reason: "soft_delete" },
-    userId: user.id,
-    userEmail: user.email,
-  });
-
-  revalidatePath("/", "layout");
-  revalidatePath("/dashboard");
-  revalidatePath("/settings/companies");
 }
 
 // ─── User / Invite Management ────────────────────────────────────────────────

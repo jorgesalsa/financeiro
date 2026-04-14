@@ -1,6 +1,7 @@
 import { listOfficialEntries } from "@/lib/actions/financial";
 import { PageHeader } from "@/components/layout/page-header";
-import { listBankAccounts, listPaymentMethods } from "@/lib/actions/master-data";
+import { listBankAccounts, listPaymentMethods, listChartOfAccounts, listSuppliers, listCustomers, listCostCenters } from "@/lib/actions/master-data";
+import { getCurrentUser } from "@/lib/auth-utils";
 import { EntriesClient } from "./client";
 
 export default async function EntriesPage({
@@ -17,7 +18,7 @@ export default async function EntriesPage({
   const params = await searchParams;
   const page = parseInt(params.page ?? "1", 10) || 1;
 
-  const [result, bankAccounts, paymentMethods] = await Promise.all([
+  const [result, bankAccounts, paymentMethods, chartOfAccounts, suppliers, customers, costCenters, user] = await Promise.all([
     listOfficialEntries({
       category: params.category,
       status: params.status,
@@ -27,7 +28,14 @@ export default async function EntriesPage({
     }),
     listBankAccounts(),
     listPaymentMethods(),
+    listChartOfAccounts(),
+    listSuppliers(),
+    listCustomers(),
+    listCostCenters(),
+    getCurrentUser(),
   ]);
+
+  const canCreateDirect = ["ADMIN", "CONTROLLER"].includes(user.memberRole);
 
   return (
     <div className="space-y-6">
@@ -39,6 +47,11 @@ export default async function EntriesPage({
         data={result.data as any[]}
         bankAccounts={bankAccounts as any[]}
         paymentMethods={paymentMethods as any[]}
+        chartOfAccounts={chartOfAccounts.map((c: any) => ({ id: c.id, code: c.code, name: c.name }))}
+        suppliers={suppliers.map((s: any) => ({ id: s.id, name: s.name }))}
+        customers={customers.map((c: any) => ({ id: c.id, name: c.name }))}
+        costCenters={costCenters.map((c: any) => ({ id: c.id, code: c.code, name: c.name }))}
+        canCreateDirect={canCreateDirect}
         pagination={{
           page: result.page,
           pageSize: result.pageSize,

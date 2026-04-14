@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ function formatCnpj(value: string): string {
 
 export function CompaniesClient({ tenants }: CompaniesClientProps) {
   const router = useRouter();
+  const { update } = useSession();
   const [isPending, startTransition] = useTransition();
   const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -163,8 +165,10 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
     startTransition(async () => {
       try {
         await switchTenant(tenantId);
-        router.push("/dashboard");
-        router.refresh();
+        // CRITICAL: update the JWT so the new tenantId is reflected in the session cookie
+        await update();
+        // Full page reload so all server components render with the new tenant context
+        window.location.href = "/dashboard";
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao trocar de empresa");
       }
@@ -174,21 +178,21 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
   async function handleDelete() {
     if (!deletingTenant) return;
     startTransition(async () => {
-      try {
-        await deleteTenant(deletingTenant.tenantId);
-        showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
+      const response = await deleteTenant(deletingTenant.tenantId);
+      if (!response.ok) {
+        showFeedback("error", response.error);
         setDeletingTenant(null);
-        router.refresh();
-      } catch (err: any) {
-        showFeedback("error", err.message || "Erro ao excluir empresa");
-        setDeletingTenant(null);
+        return;
       }
+      showFeedback("success", `Empresa "${deletingTenant.tenantName}" excluída com sucesso!`);
+      setDeletingTenant(null);
+      router.refresh();
     });
   }
 
   function canDelete(tenant: TenantInfo): boolean {
     return (
-      tenant.active &&
+      !tenant.active &&
       !tenant.isDefault &&
       tenant.role === "ADMIN" &&
       tenants.length > 1
@@ -430,11 +434,11 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
           </DialogHeader>
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
-              Tem certeza que deseja excluir a empresa{" "}
+              Tem certeza que deseja excluir permanentemente a empresa{" "}
               <strong className="text-foreground">{deletingTenant?.tenantName}</strong>?
             </p>
-            <p className="text-sm text-muted-foreground">
-              A empresa será desativada e não aparecerá mais na listagem. Seus dados serão preservados.
+            <p className="text-sm font-medium text-red-600">
+              Esta ação é irreversível. Todos os dados da empresa (membros, configurações, lançamentos de staging, etc.) serão removidos permanentemente.
             </p>
           </div>
           <DialogFooter>

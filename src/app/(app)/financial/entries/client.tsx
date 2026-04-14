@@ -31,8 +31,10 @@ import {
   XCircle,
   Layers,
   Pencil,
+  Plus,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createDirectOfficialEntry } from "@/lib/actions/financial";
 
 const CATEGORY_LABELS: Record<string, string> = {
   PAYABLE: "Conta a Pagar",
@@ -77,10 +79,37 @@ type PaymentMethod = {
   name: string;
 };
 
+type ChartOfAccount = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type SupplierOption = {
+  id: string;
+  name: string;
+};
+
+type CustomerOption = {
+  id: string;
+  name: string;
+};
+
+type CostCenterOption = {
+  id: string;
+  code: string;
+  name: string;
+};
+
 interface EntriesClientProps {
   data: OfficialEntry[];
   bankAccounts: BankAccount[];
   paymentMethods: PaymentMethod[];
+  chartOfAccounts?: ChartOfAccount[];
+  suppliers?: SupplierOption[];
+  customers?: CustomerOption[];
+  costCenters?: CostCenterOption[];
+  canCreateDirect?: boolean;
   pagination: {
     page: number;
     pageSize: number;
@@ -99,6 +128,11 @@ export function EntriesClient({
   data,
   bankAccounts,
   paymentMethods,
+  chartOfAccounts = [],
+  suppliers = [],
+  customers = [],
+  costCenters = [],
+  canCreateDirect = false,
   pagination,
   filters,
 }: EntriesClientProps) {
@@ -112,11 +146,16 @@ export function EntriesClient({
   const [dateFrom, setDateFrom] = useState(filters.startDate);
   const [dateTo, setDateTo] = useState(filters.endDate);
 
+  // Banner shown when arriving from staging incorporation
+  const incorporatedCount = searchParams.get("incorporated");
+
   // Dialogs
   const [settleOpen, setSettleOpen] = useState(false);
   const [settlingEntry, setSettlingEntry] = useState<OfficialEntry | null>(null);
   const [installmentOpen, setInstallmentOpen] = useState(false);
   const [installmentEntry, setInstallmentEntry] = useState<OfficialEntry | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Data is already filtered server-side
   const filteredData = data;
@@ -197,6 +236,35 @@ export function EntriesClient({
       setInstallmentOpen(false);
       setInstallmentEntry(null);
       router.refresh();
+    });
+  }
+
+  async function handleCreateDirect(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setCreateError(null);
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        await createDirectOfficialEntry({
+          date: formData.get("date") as string,
+          competenceDate: (formData.get("competenceDate") as string) || undefined,
+          description: formData.get("description") as string,
+          amount: parseFloat(formData.get("amount") as string),
+          transactionType: formData.get("transactionType") as "CREDIT" | "DEBIT",
+          category: formData.get("category") as "PAYABLE" | "RECEIVABLE" | "TRANSFER" | "ADJUSTMENT",
+          chartOfAccountId: formData.get("chartOfAccountId") as string,
+          bankAccountId: formData.get("bankAccountId") as string,
+          costCenterId: (formData.get("costCenterId") as string) || undefined,
+          supplierId: (formData.get("supplierId") as string) || undefined,
+          customerId: (formData.get("customerId") as string) || undefined,
+          paymentMethodId: (formData.get("paymentMethodId") as string) || undefined,
+          dueDate: (formData.get("dueDate") as string) || undefined,
+        });
+        setCreateOpen(false);
+        router.refresh();
+      } catch (err: any) {
+        setCreateError(err.message || "Erro ao criar lancamento");
+      }
     });
   }
 
@@ -329,7 +397,7 @@ export function EntriesClient({
       header: "Acoes",
       cell: ({ row }) => {
         const entry = row.original;
-        const canSettle = entry.status === "OPEN" || entry.status === "PARTIAL";
+        const canSettle = entry.status === "OPEN" || entry.status === "PARTIAL" || entry.status === "OVERDUE";
         return (
           <div className="flex gap-1">
             {canSettle && (
@@ -391,6 +459,21 @@ export function EntriesClient({
 
   return (
     <>
+      {/* Staging incorporation success banner */}
+      {incorporatedCount && (
+        <div className="rounded-md bg-green-50 border border-green-200 p-3 text-sm text-green-800 flex items-center justify-between">
+          <span>
+            ✓ <strong>{incorporatedCount}</strong> lançamento{Number(incorporatedCount) !== 1 ? "s incorporados" : " incorporado"} com sucesso! Exibindo todos os lançamentos sem filtro de data.
+          </span>
+          <button
+            onClick={() => router.replace("/financial/entries")}
+            className="ml-4 text-green-600 hover:text-green-800 font-bold text-base leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Filter bar */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2 sm:gap-4">
         <div>
@@ -466,6 +549,17 @@ export function EntriesClient({
         >
           Limpar Filtros
         </Button>
+        {canCreateDirect && (
+          <Button
+            variant="default"
+            size="sm"
+            className="col-span-2 sm:col-span-1 sm:ml-auto"
+            onClick={() => { setCreateError(null); setCreateOpen(true); }}
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Novo Lancamento
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -624,6 +718,134 @@ export function EntriesClient({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Create direct entry dialog */}
+      {canCreateDirect && (
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Novo Lancamento Oficial</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateDirect} className="space-y-4">
+              {createError && (
+                <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{createError}</p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Descricao *</label>
+                  <Input name="description" placeholder="Ex: Pagamento fornecedor X" required />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Valor *</label>
+                  <Input name="amount" type="number" step="0.01" min="0.01" placeholder="0,00" required />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Tipo *</label>
+                  <Select name="transactionType" required>
+                    <option value="DEBIT">Debito (Saida)</option>
+                    <option value="CREDIT">Credito (Entrada)</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Categoria *</label>
+                  <Select name="category" required>
+                    <option value="PAYABLE">Conta a Pagar</option>
+                    <option value="RECEIVABLE">Conta a Receber</option>
+                    <option value="TRANSFER">Transferencia</option>
+                    <option value="ADJUSTMENT">Ajuste</option>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Data *</label>
+                  <Input name="date" type="date" defaultValue={new Date().toISOString().split("T")[0]} required />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Data Competencia</label>
+                  <Input name="competenceDate" type="date" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Vencimento</label>
+                  <Input name="dueDate" type="date" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Plano de Contas *</label>
+                  <SearchableSelect
+                    name="chartOfAccountId"
+                    required
+                    placeholder="Buscar conta contabil..."
+                    options={chartOfAccounts.map((c) => ({
+                      value: c.id,
+                      label: `${c.code} - ${c.name}`,
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Conta Bancaria *</label>
+                  <SearchableSelect
+                    name="bankAccountId"
+                    required
+                    placeholder="Buscar conta..."
+                    options={bankAccounts.map((ba) => ({
+                      value: ba.id,
+                      label: `${ba.bankName} - ${ba.accountNumber}`,
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Forma Pagamento</label>
+                  <Select name="paymentMethodId">
+                    <option value="">Nenhuma</option>
+                    {paymentMethods.map((pm) => (
+                      <option key={pm.id} value={pm.id}>{pm.name}</option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Centro de Custo</label>
+                  <SearchableSelect
+                    name="costCenterId"
+                    placeholder="Buscar centro de custo..."
+                    options={costCenters.map((c) => ({
+                      value: c.id,
+                      label: `${c.code} - ${c.name}`,
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Fornecedor</label>
+                  <SearchableSelect
+                    name="supplierId"
+                    placeholder="Buscar fornecedor..."
+                    options={suppliers.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Cliente</label>
+                  <SearchableSelect
+                    name="customerId"
+                    placeholder="Buscar cliente..."
+                    options={customers.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    }))}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? "Criando..." : "Criar Lancamento"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }
