@@ -23,3 +23,5 @@ dev.sh
 # misc
 .DS_Store
 *.tsbuildinfo
+.vercel
+.github/

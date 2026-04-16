@@ -29,6 +29,7 @@ export default async function UsersPage() {
     email: i.email,
     role: i.role,
     status: i.status,
+    token: i.token,
     expiresAt: i.expiresAt instanceof Date ? i.expiresAt.toISOString() : String(i.expiresAt),
     createdByName: i.createdBy?.name ?? "",
     createdAt: i.createdAt instanceof Date ? i.createdAt.toISOString() : String(i.createdAt),

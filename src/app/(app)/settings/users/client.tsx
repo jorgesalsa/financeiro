@@ -20,6 +20,9 @@ import {
   Mail,
   Shield,
   XCircle,
+  Copy,
+  Check,
+  Link as LinkIcon,
 } from "lucide-react";
 import {
   inviteUserToTenant,
@@ -43,6 +46,7 @@ type InviteInfo = {
   email: string;
   role: string;
   status: string;
+  token: string;
   expiresAt: string;
   createdByName: string;
   createdAt: string;
@@ -84,6 +88,8 @@ export function UsersClient({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("ANALYST");
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState<{
     type: "success" | "error";
     message: string;
@@ -124,19 +130,50 @@ export function UsersClient({
     startTransition(async () => {
       try {
         const result = await inviteUserToTenant(inviteEmail, inviteRole as any);
-        const message =
-          (result as any)?.type === "direct"
-            ? "Usuario adicionado diretamente"
-            : "Convite enviado";
-        showFeedback("success", message);
         setInviteOpen(false);
         setInviteEmail("");
         setInviteRole("ANALYST");
+
+        if ((result as any)?.type === "direct") {
+          showFeedback("success", "Usuario adicionado diretamente");
+        } else {
+          // Show the invite link dialog
+          const token = (result as any)?.invite?.token;
+          if (token) {
+            const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+            setGeneratedLink(`${baseUrl}/invite/${token}`);
+          } else {
+            showFeedback("success", "Convite criado");
+          }
+        }
         router.refresh();
       } catch (err: any) {
         showFeedback("error", err.message || "Erro ao enviar convite");
       }
     });
+  }
+
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+      const input = document.createElement("input");
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function getInviteLink(token: string) {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    return `${baseUrl}/invite/${token}`;
   }
 
   async function handleCancelInvite(inviteId: string) {
@@ -347,15 +384,25 @@ export function UsersClient({
                           </td>
                           <td className="px-3 py-2 sm:px-4 sm:py-3">
                             {invite.status === "PENDING" && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleCancelInvite(invite.id)}
-                                disabled={isPending}
-                                title="Cancelar convite"
-                              >
-                                <XCircle className="h-4 w-4 text-red-600" />
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => copyToClipboard(getInviteLink(invite.token))}
+                                  title="Copiar link de convite"
+                                >
+                                  <LinkIcon className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleCancelInvite(invite.id)}
+                                  disabled={isPending}
+                                  title="Cancelar convite"
+                                >
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -368,6 +415,44 @@ export function UsersClient({
           )}
         </CardContent>
       </Card>
+
+      {/* Generated link dialog */}
+      <Dialog open={!!generatedLink} onOpenChange={(open) => { if (!open) setGeneratedLink(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="h-4 w-4" />
+              Link de convite gerado
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Copie e envie este link para o usuário convidado. O link expira em <strong>7 dias</strong>.
+            </p>
+            <div className="flex gap-2">
+              <input
+                readOnly
+                value={generatedLink ?? ""}
+                className="flex-1 rounded-md border border-input bg-muted px-3 py-2 text-xs font-mono truncate"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => generatedLink && copyToClipboard(generatedLink)}
+              >
+                {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se o usuário ainda não tem conta, o link também vai criar a conta automaticamente.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setGeneratedLink(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Invite dialog */}
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

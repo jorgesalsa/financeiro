@@ -99,6 +99,7 @@ export default async function BatchDetailPage({
       rowNumber: e.item?.rowNumber ?? null,
       entityType: e.item?.entityType ?? null,
       sheetName: e.item?.sheetName ?? null,
+      itemStatus: (e.item as any)?.status ?? null,
     }));
 
     itemsPagination = { page: itemsResult.page, totalPages: itemsResult.totalPages, total: itemsResult.total };

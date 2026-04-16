@@ -1,17 +1,27 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import prisma from "@/lib/db";
 import { syncTransactionsFromPluggy } from "@/lib/services/pluggy-sync";
 
 export async function POST(request: Request) {
   try {
-    // SECURITY: Validate webhook secret if configured
+    // SECURITY: Require webhook secret — reject if not configured
     const webhookSecret = process.env.PLUGGY_WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const authHeader = request.headers.get("x-pluggy-signature") || request.headers.get("authorization");
-      if (authHeader !== `Bearer ${webhookSecret}` && authHeader !== webhookSecret) {
-        console.warn("[Pluggy Webhook] Unauthorized: invalid signature");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    if (!webhookSecret) {
+      console.error("[Pluggy Webhook] PLUGGY_WEBHOOK_SECRET not configured");
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    // SECURITY: Constant-time comparison to prevent timing attacks
+    const authHeader = request.headers.get("x-pluggy-signature") || request.headers.get("authorization");
+    const providedToken = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
+
+    const secretBuf = Buffer.from(webhookSecret, "utf-8");
+    const providedBuf = Buffer.from(providedToken, "utf-8");
+
+    if (secretBuf.length !== providedBuf.length || !crypto.timingSafeEqual(secretBuf, providedBuf)) {
+      console.warn("[Pluggy Webhook] Unauthorized: invalid signature");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await request.json();

@@ -33,6 +33,11 @@ export async function reconcileManually(bankStatementLineId: string, officialEnt
 export async function undoReconciliation(reconciliationId: string) {
   const user = await getCurrentUser();
 
+  // Security: verify ownership before delete
+  await prisma.reconciliation.findFirstOrThrow({
+    where: { id: reconciliationId, tenantId: user.tenantId },
+  });
+
   await prisma.reconciliation.delete({
     where: { id: reconciliationId },
   });

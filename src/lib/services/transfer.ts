@@ -26,21 +26,13 @@ export async function createInternalTransfer(params: {
     }),
   ]);
 
-  // Get next sequential numbers
-  const lastEntry = await prisma.officialEntry.findFirst({
-    where: { tenantId: params.tenantId },
-    orderBy: { sequentialNumber: "desc" },
-    select: { sequentialNumber: true },
-  });
-  const nextSeq = (lastEntry?.sequentialNumber ?? 0) + 1;
-
   const description = params.reference
     ? `Transferência interna: ${source.bankName} → ${target.bankName} (${params.reference})`
     : `Transferência interna: ${source.bankName} → ${target.bankName}`;
 
   // Need a chart of account for TRANSFER entries — get any active one
   const transferAccount = await prisma.chartOfAccount.findFirst({
-    where: { tenantId: params.tenantId, active: true },
+    where: { tenantId: params.tenantId, active: true, deletedAt: null },
     orderBy: { code: "asc" },
   });
   if (!transferAccount) {
@@ -48,6 +40,17 @@ export async function createInternalTransfer(params: {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // SECURITY: Atomic sequential number inside transaction to prevent race condition.
+    // Reading the max sequential number outside the transaction allows two concurrent
+    // transfers to get the same nextSeq. By reading inside the transaction, PostgreSQL
+    // serializes the reads.
+    const lastEntry = await tx.officialEntry.findFirst({
+      where: { tenantId: params.tenantId },
+      orderBy: { sequentialNumber: "desc" },
+      select: { sequentialNumber: true },
+    });
+    const nextSeq = (lastEntry?.sequentialNumber ?? 0) + 1;
+
     // Create DEBIT entry (outgoing from source)
     const debitEntry = await tx.officialEntry.create({
       data: {

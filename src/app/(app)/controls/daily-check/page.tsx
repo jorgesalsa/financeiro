@@ -45,7 +45,7 @@ export default async function DailyCheckPage() {
   const overdueEntries = await prisma.officialEntry.count({
     where: {
       tenantId: user.tenantId,
-      status: { in: ["OPEN", "PARTIAL"] },
+      status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
       dueDate: { lt: today },
     },
   });

@@ -71,8 +71,15 @@ export async function assertVersionMatch(
 
 /**
  * RA07: Increment version after a successful update.
+ * Requires tenantId to ensure cross-tenant safety.
  */
-export async function incrementVersion(entryId: string): Promise<number> {
+export async function incrementVersion(entryId: string, tenantId: string): Promise<number> {
+  // Security: verify ownership before incrementing
+  await prisma.officialEntry.findFirstOrThrow({
+    where: { id: entryId, tenantId },
+    select: { id: true },
+  });
+
   const updated = await prisma.officialEntry.update({
     where: { id: entryId },
     data: { version: { increment: 1 } },

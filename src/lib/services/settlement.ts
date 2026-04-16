@@ -67,15 +67,16 @@ export async function settleEntry(params: {
   await assertPeriodNotLocked(params.tenantId, effectiveDate);
 
   const entry = await prisma.officialEntry.findFirstOrThrow({
-    where: { id: params.officialEntryId, tenantId: params.tenantId, status: { in: ["OPEN", "PARTIAL"] } },
+    where: { id: params.officialEntryId, tenantId: params.tenantId, status: { in: ["OPEN", "PARTIAL", "OVERDUE"] } },
     include: { settlements: true },
+    // version field is auto-included — needed for optimistic locking below
   });
 
   const previouslyPaid = entry.settlements.reduce((sum, s) => sum + Number(s.amount), 0);
   const remaining = Number(entry.amount) - previouslyPaid;
   const paymentAmount = params.amount + (params.interestAmount ?? 0) + (params.fineAmount ?? 0) - (params.discountAmount ?? 0);
 
-  if (params.amount > remaining + 0.01) {
+  if (Math.round(params.amount * 100) > Math.round(remaining * 100) + 1) {
     throw new Error(`Valor excede o saldo devedor de R$ ${remaining.toFixed(2)}`);
   }
 
@@ -99,10 +100,16 @@ export async function settleEntry(params: {
     });
 
     const totalPaid = previouslyPaid + params.amount;
-    const isFullyPaid = totalPaid >= Number(entry.amount) - 0.01;
+    const isFullyPaid = Math.round(totalPaid * 100) >= Math.round(Number(entry.amount) * 100) - 1;
 
-    await tx.officialEntry.update({
-      where: { id: params.officialEntryId },
+    // SECURITY: Optimistic locking — prevents concurrent duplicate settlements.
+    // If another settlement was created between our read and this write, the
+    // version won't match and updateMany returns count=0.
+    const lockResult = await tx.officialEntry.updateMany({
+      where: {
+        id: params.officialEntryId,
+        version: entry.version, // Optimistic lock
+      },
       data: {
         status: isFullyPaid ? "SETTLED" : "PARTIAL",
         paidDate: isFullyPaid ? params.date : null,
@@ -110,8 +117,15 @@ export async function settleEntry(params: {
         interestAmount: Number(entry.interestAmount) + (params.interestAmount ?? 0),
         fineAmount: Number(entry.fineAmount) + (params.fineAmount ?? 0),
         discountAmount: Number(entry.discountAmount) + (params.discountAmount ?? 0),
+        version: { increment: 1 },
       },
     });
+
+    if (lockResult.count === 0) {
+      throw new Error(
+        "Conflito de concorrencia: este lancamento foi modificado por outra operacao. Tente novamente."
+      );
+    }
 
     // Update bank balance — tenant-validated bankAccountId
     const balanceChange = entry.category === "PAYABLE"

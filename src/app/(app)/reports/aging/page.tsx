@@ -15,7 +15,9 @@ const BUCKETS = [
 function getDaysOverdue(dueDate: Date | string | null): number {
   if (!dueDate) return 0;
   const due = new Date(dueDate);
+  due.setUTCHours(0, 0, 0, 0);
   const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
   const diff = Math.floor(
     (today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)
   );
@@ -28,7 +30,7 @@ export default async function AgingPage() {
   const openEntries = await prisma.officialEntry.findMany({
     where: {
       tenantId: user.tenantId,
-      status: { in: ["OPEN", "PARTIAL"] },
+      status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
     },
     select: {
       id: true,

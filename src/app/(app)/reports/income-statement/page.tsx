@@ -1,141 +1,61 @@
-import prisma from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils/format";
+import prisma from "@/lib/db";
+import {
+  calculateDRE,
+  calcVariation,
+  formatVariation,
+  variationBg,
+  type AccountRow,
+} from "@/lib/services/reports/dre";
 
-export default async function IncomeStatementPage() {
+interface PageProps {
+  searchParams: Promise<{ costCenterId?: string; year?: string }>;
+}
+
+export default async function IncomeStatementPage({ searchParams }: PageProps) {
   const user = await getCurrentUser();
+  const params = await searchParams;
 
-  const currentYear = new Date().getFullYear();
+  const currentYear = params.year
+    ? parseInt(params.year, 10)
+    : new Date().getFullYear();
 
-  // RA01: Use competenceDate for DRE (not date); exclude TRANSFER category
-  const entries = await prisma.officialEntry.findMany({
-    where: {
-      tenantId: user.tenantId,
-      status: { not: "CANCELLED" },
-      category: { not: "TRANSFER" }, // RA06: Exclude internal transfers from DRE
-      competenceDate: {
-        gte: new Date(`${currentYear}-01-01`),
-        lte: new Date(`${currentYear}-12-31`),
-      },
-    },
-    include: {
-      chartOfAccount: {
-        select: { id: true, code: true, name: true, type: true },
-      },
-    },
+  // Fetch cost centers for filter dropdown
+  const costCenters = await prisma.costCenter.findMany({
+    where: { tenantId: user.tenantId, active: true },
+    select: { id: true, code: true, name: true },
+    orderBy: { code: "asc" },
   });
 
-  // Group by account type and month
-  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const dreResult = await calculateDRE({
+    tenantId: user.tenantId,
+    year: currentYear,
+    costCenterId: params.costCenterId,
+  });
+
+  const {
+    revenue,
+    deductions,
+    costs,
+    expenses,
+    investments,
+    netRevenue,
+    netRevenueMonthly,
+    grossProfit,
+    grossProfitMonthly,
+    operatingResult,
+    operatingResultMonthly,
+    netResult,
+    netResultMonthly,
+  } = dreResult;
+
   const monthLabels = [
     "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
     "Jul", "Ago", "Set", "Out", "Nov", "Dez",
   ];
-
-  type AccountRow = {
-    code: string;
-    name: string;
-    type: string;
-    monthly: number[];
-    ytd: number;
-  };
-
-  const accountMap = new Map<string, AccountRow>();
-
-  // Financial DRE types: REVENUE, DEDUCTION, COST, EXPENSE, INVESTMENT
-  const DRE_TYPES = ["REVENUE", "DEDUCTION", "COST", "EXPENSE", "INVESTMENT"];
-
-  for (const entry of entries) {
-    if (!entry.chartOfAccount) continue;
-    const { id, code, name, type } = entry.chartOfAccount;
-    if (!DRE_TYPES.includes(type)) continue;
-
-    if (!accountMap.has(id)) {
-      accountMap.set(id, {
-        code,
-        name,
-        type,
-        monthly: Array(12).fill(0),
-        ytd: 0,
-      });
-    }
-
-    const row = accountMap.get(id)!;
-    // RA01: Use competenceDate for monthly distribution
-    const month = new Date(entry.competenceDate).getMonth();
-    row.monthly[month] += Number(entry.amount);
-    row.ytd += Number(entry.amount);
-  }
-
-  const revenues = Array.from(accountMap.values())
-    .filter((r) => r.type === "REVENUE")
-    .sort((a, b) => a.code.localeCompare(b.code));
-
-  const deductions = Array.from(accountMap.values())
-    .filter((r) => r.type === "DEDUCTION")
-    .sort((a, b) => a.code.localeCompare(b.code));
-
-  const costs = Array.from(accountMap.values())
-    .filter((r) => r.type === "COST")
-    .sort((a, b) => a.code.localeCompare(b.code));
-
-  const expenses = Array.from(accountMap.values())
-    .filter((r) => r.type === "EXPENSE")
-    .sort((a, b) => a.code.localeCompare(b.code));
-
-  const investments = Array.from(accountMap.values())
-    .filter((r) => r.type === "INVESTMENT")
-    .sort((a, b) => a.code.localeCompare(b.code));
-
-  const totalRevenue = revenues.reduce((sum, r) => sum + r.ytd, 0);
-  const totalDeduction = deductions.reduce((sum, r) => sum + r.ytd, 0);
-  const totalCost = costs.reduce((sum, r) => sum + r.ytd, 0);
-  const totalExpense = expenses.reduce((sum, r) => sum + r.ytd, 0);
-  const totalInvestment = investments.reduce((sum, r) => sum + r.ytd, 0);
-
-  const netRevenue = totalRevenue - totalDeduction;
-  const grossProfit = netRevenue - totalCost;
-  const operatingResult = grossProfit - totalExpense;
-  const netResult = operatingResult - totalInvestment;
-
-  const revenueMonthly = months.map((_, i) =>
-    revenues.reduce((sum, r) => sum + r.monthly[i], 0)
-  );
-  const deductionMonthly = months.map((_, i) =>
-    deductions.reduce((sum, r) => sum + r.monthly[i], 0)
-  );
-  const costMonthly = months.map((_, i) =>
-    costs.reduce((sum, r) => sum + r.monthly[i], 0)
-  );
-  const expenseMonthly = months.map((_, i) =>
-    expenses.reduce((sum, r) => sum + r.monthly[i], 0)
-  );
-  const investmentMonthly = months.map((_, i) =>
-    investments.reduce((sum, r) => sum + r.monthly[i], 0)
-  );
-
-  // Heatmap: returns a bg class based on % variation
-  function variationBg(pct: number | null): string {
-    if (pct === null) return "";
-    if (pct >= 20) return "bg-emerald-100 text-emerald-800";
-    if (pct >= 5) return "bg-emerald-50 text-emerald-700";
-    if (pct > -5) return "";
-    if (pct > -20) return "bg-red-50 text-red-700";
-    return "bg-red-100 text-red-800";
-  }
-
-  function calcVariation(current: number, previous: number): number | null {
-    if (previous === 0) return current === 0 ? null : null;
-    return ((current - previous) / Math.abs(previous)) * 100;
-  }
-
-  function formatVariation(pct: number | null): string {
-    if (pct === null) return "—";
-    const sign = pct >= 0 ? "+" : "";
-    return `${sign}${pct.toFixed(1)}%`;
-  }
 
   // Current month index (0-based) for variation column
   const currentMonthIdx = new Date().getMonth();
@@ -220,28 +140,54 @@ export default async function IncomeStatementPage() {
     );
   }
 
-  const netRevenueMonthly = months.map((_, i) => revenueMonthly[i] - deductionMonthly[i]);
-  const grossProfitMonthly = months.map((_, i) => netRevenueMonthly[i] - costMonthly[i]);
-  const operatingResultMonthly = months.map((_, i) => grossProfitMonthly[i] - expenseMonthly[i]);
-  const netResultMonthly = months.map((_, i) => operatingResultMonthly[i] - investmentMonthly[i]);
+  const selectedCostCenter = costCenters.find((cc) => cc.id === params.costCenterId);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="DRE - Demonstracao do Resultado"
-        description={`Exercicio ${currentYear}`}
+        description={`Exercicio ${currentYear}${selectedCostCenter ? ` | Centro de Custo: ${selectedCostCenter.code} - ${selectedCostCenter.name}` : ""}`}
       />
+
+      {/* Cost Center Filter */}
+      {costCenters.length > 0 && (
+        <form className="flex items-center gap-3">
+          <label htmlFor="costCenter" className="text-sm font-medium text-muted-foreground">
+            Centro de Custo:
+          </label>
+          <select
+            name="costCenterId"
+            id="costCenter"
+            defaultValue={params.costCenterId ?? ""}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Todos</option>
+            {costCenters.map((cc) => (
+              <option key={cc.id} value={cc.id}>
+                {cc.code} - {cc.name}
+              </option>
+            ))}
+          </select>
+          <input type="hidden" name="year" value={currentYear} />
+          <button
+            type="submit"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Filtrar
+          </button>
+        </form>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3 sm:p-4 text-center">
           <p className="text-xs sm:text-sm text-muted-foreground">Receita Bruta</p>
           <p className="text-lg sm:text-2xl font-bold text-green-600">
-            {formatCurrency(totalRevenue)}
+            {formatCurrency(revenue.total)}
           </p>
         </Card>
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Receita Líquida</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Receita Liquida</p>
           <p className="text-lg sm:text-2xl font-bold text-green-600">
             {formatCurrency(netRevenue)}
           </p>
@@ -253,7 +199,7 @@ export default async function IncomeStatementPage() {
           </p>
         </Card>
         <Card className="p-3 sm:p-4 text-center">
-          <p className="text-xs sm:text-sm text-muted-foreground">Resultado Líquido</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Resultado Liquido</p>
           <p
             className={`text-lg sm:text-2xl font-bold ${
               netResult >= 0 ? "text-green-600" : "text-red-600"
@@ -283,38 +229,38 @@ export default async function IncomeStatementPage() {
           </thead>
           <tbody>
             {/* 1. RECEITAS */}
-            {renderSection("RECEITAS", revenues, "Total Receita Bruta", totalRevenue, revenueMonthly, "bg-green-50", "text-green-800")}
+            {renderSection("RECEITAS", revenue.rows, "Total Receita Bruta", revenue.total, revenue.monthly, "bg-green-50", "text-green-800")}
 
-            {/* 2. DEDUÇÕES */}
-            {deductions.length > 0 && (
+            {/* 2. DEDUCOES */}
+            {deductions.rows.length > 0 && (
               <>
-                {renderSection("(-) DEDUÇÕES E IMPOSTOS", deductions, "Total Deduções", totalDeduction, deductionMonthly, "bg-amber-50", "text-amber-800")}
-                {renderSubtotalRow("= RECEITA LÍQUIDA", netRevenueMonthly, netRevenue, "bg-green-100")}
+                {renderSection("(-) DEDUCOES E IMPOSTOS", deductions.rows, "Total Deducoes", deductions.total, deductions.monthly, "bg-amber-50", "text-amber-800")}
+                {renderSubtotalRow("= RECEITA LIQUIDA", netRevenueMonthly, netRevenue, "bg-green-100")}
               </>
             )}
 
             {/* 3. CUSTOS */}
-            {costs.length > 0 && (
+            {costs.rows.length > 0 && (
               <>
-                {renderSection("(-) CUSTOS", costs, "Total Custos", totalCost, costMonthly, "bg-orange-50", "text-orange-800")}
+                {renderSection("(-) CUSTOS", costs.rows, "Total Custos", costs.total, costs.monthly, "bg-orange-50", "text-orange-800")}
                 {renderSubtotalRow("= LUCRO BRUTO", grossProfitMonthly, grossProfit, "bg-blue-50")}
               </>
             )}
 
             {/* 4. DESPESAS */}
-            {renderSection("(-) DESPESAS OPERACIONAIS", expenses, "Total Despesas", totalExpense, expenseMonthly, "bg-red-50", "text-red-800")}
+            {renderSection("(-) DESPESAS OPERACIONAIS", expenses.rows, "Total Despesas", expenses.total, expenses.monthly, "bg-red-50", "text-red-800")}
             {renderSubtotalRow("= RESULTADO OPERACIONAL", operatingResultMonthly, operatingResult, "bg-blue-100")}
 
             {/* 5. INVESTIMENTOS */}
-            {investments.length > 0 && (
+            {investments.rows.length > 0 && (
               <>
-                {renderSection("(-) INVESTIMENTOS E RETIRADAS", investments, "Total Investimentos", totalInvestment, investmentMonthly, "bg-purple-50", "text-purple-800")}
+                {renderSection("(-) INVESTIMENTOS E RETIRADAS", investments.rows, "Total Investimentos", investments.total, investments.monthly, "bg-purple-50", "text-purple-800")}
               </>
             )}
 
             {/* RESULTADO LIQUIDO */}
             <tr className="bg-muted font-bold text-lg">
-              <td className="px-3 py-3 sticky left-0 bg-muted">RESULTADO LÍQUIDO</td>
+              <td className="px-3 py-3 sticky left-0 bg-muted">RESULTADO LIQUIDO</td>
               {netResultMonthly.map((val, i) => (
                 <td key={i} className="px-3 py-3 text-right">
                   {formatCurrency(val)}

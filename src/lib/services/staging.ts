@@ -3,9 +3,11 @@ import { createAuditLog } from "@/lib/utils/audit";
 import type { StagingStatus } from "@/generated/prisma";
 
 // RA02: State Machine — Valid Transitions
+// PENDING and PARSED can go directly to VALIDATED to support
+// human reviewers who skip automated pipeline stages (e.g. migration imports).
 const VALID_TRANSITIONS: Record<StagingStatus, StagingStatus[]> = {
-  PENDING: ["PARSED", "REJECTED"],
-  PARSED: ["NORMALIZED", "REJECTED"],
+  PENDING: ["PARSED", "VALIDATED", "REJECTED"],
+  PARSED: ["NORMALIZED", "VALIDATED", "REJECTED"],
   NORMALIZED: ["AUTO_CLASSIFIED", "CONFLICT", "VALIDATED", "REJECTED"],
   AUTO_CLASSIFIED: ["VALIDATED", "CONFLICT", "REJECTED"],
   CONFLICT: ["AUTO_CLASSIFIED", "VALIDATED", "REJECTED"],

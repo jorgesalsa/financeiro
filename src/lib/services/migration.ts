@@ -342,6 +342,21 @@ export async function validateBatch(
       });
     }
 
+    // ── W010: Recommended field missing ─────────────────────────────
+    const recommendedFields = getRecommendedFields(item.entityType);
+    for (const field of recommendedFields) {
+      const val = data[field];
+      if (val === undefined || val === null || val === "") {
+        itemErrors.push({
+          itemId: item.id,
+          severity: "WARNING",
+          field,
+          code: "W010",
+          message: `Campo recomendado '${field}' nao informado`,
+        });
+      }
+    }
+
     // Calculate score
     let score = 100;
     const hasErrors = itemErrors.some((e) => e.severity === "ERROR");
@@ -480,7 +495,8 @@ export async function processBatch(
     const entityRollbackIds: string[] = [];
 
     for (const item of items) {
-      const data = (item.correctedData ?? item.mappedData ?? item.rawData) as Record<string, unknown>;
+      // Fallback to empty object if all data fields are null (should not happen in normal flow)
+      const data = ((item.correctedData ?? item.mappedData ?? item.rawData) ?? {}) as Record<string, unknown>;
       const action = (data._action as string)?.toUpperCase() || "CREATE";
 
       if (action === "SKIP") {
@@ -577,12 +593,18 @@ async function importChartOfAccount(
   tenantId: string,
   action: string
 ): Promise<string> {
-  const code = String(data.code);
   const name = String(data.name);
   const type = String(data.type).toUpperCase() as any;
   const level = Number(data.level) || 1;
   const isAnalytic = parseBool(data.is_analytic, true);
   const active = parseBool(data.active, true);
+
+  // Auto-generate code if not provided
+  let code = data.code ? String(data.code) : "";
+  if (!code) {
+    const count = await prisma.chartOfAccount.count({ where: { tenantId } });
+    code = `MIG_${String(count + 1).padStart(4, "0")}`;
+  }
 
   // Resolve parent
   let parentId: string | null = null;
@@ -653,18 +675,21 @@ async function importSupplier(
   tenantId: string,
   action: string
 ): Promise<string> {
-  const cnpjCpf = String(data.cnpj_cpf).replace(/\D/g, "");
+  const cnpjCpf = data.cnpj_cpf ? String(data.cnpj_cpf).replace(/\D/g, "") : "";
+  const name = String(data.name);
 
+  // Try to find existing by CNPJ or by name (fallback when no CNPJ)
   if (action === "UPDATE") {
-    const existing = await prisma.supplier.findFirst({
-      where: { tenantId, cnpjCpf },
-    });
+    const existing = cnpjCpf
+      ? await prisma.supplier.findFirst({ where: { tenantId, cnpjCpf } })
+      : await prisma.supplier.findFirst({ where: { tenantId, name } });
     if (existing) {
       await prisma.supplier.update({
         where: { id: existing.id },
         data: {
-          ...(data.name ? { name: String(data.name) } : {}),
+          ...(data.name ? { name } : {}),
           ...(data.trade_name ? { tradeName: String(data.trade_name) } : {}),
+          ...(cnpjCpf ? { cnpjCpf } : {}),
           ...(data.email ? { email: String(data.email) } : {}),
           ...(data.phone ? { phone: String(data.phone) } : {}),
           ...(data.address ? { address: String(data.address) } : {}),
@@ -682,7 +707,7 @@ async function importSupplier(
   const created = await prisma.supplier.create({
     data: {
       tenantId,
-      name: String(data.name),
+      name,
       tradeName: data.trade_name ? String(data.trade_name) : null,
       cnpjCpf,
       stateRegistration: data.state_registration ? String(data.state_registration) : null,
@@ -755,19 +780,31 @@ async function importBankAccount(
   tenantId: string,
   action: string
 ): Promise<string> {
-  const bankCode = String(data.bank_code);
-  const agency = String(data.agency);
-  const accountNumber = String(data.account_number);
+  const bankName = String(data.bank_name);
+  const bankCode = data.bank_code ? String(data.bank_code) : "000";
+  const agency = data.agency ? String(data.agency) : "0000";
+  const accountNumber = data.account_number ? String(data.account_number) : "";
+
+  // Auto-generate account number if not provided to satisfy unique constraint
+  let finalAccountNumber = accountNumber;
+  if (!finalAccountNumber) {
+    const count = await prisma.bankAccount.count({ where: { tenantId } });
+    finalAccountNumber = `MIG_${String(count + 1).padStart(4, "0")}`;
+  }
 
   if (action === "UPDATE") {
-    const existing = await prisma.bankAccount.findFirst({
-      where: { tenantId, bankCode, agency, accountNumber },
-    });
+    // Try exact match first, fallback to name match
+    const existing = (bankCode !== "000" && agency !== "0000" && accountNumber)
+      ? await prisma.bankAccount.findFirst({ where: { tenantId, bankCode, agency, accountNumber } })
+      : await prisma.bankAccount.findFirst({ where: { tenantId, bankName } });
     if (existing) {
       await prisma.bankAccount.update({
         where: { id: existing.id },
         data: {
-          ...(data.bank_name ? { bankName: String(data.bank_name) } : {}),
+          ...(data.bank_name ? { bankName } : {}),
+          ...(data.bank_code ? { bankCode } : {}),
+          ...(data.agency ? { agency } : {}),
+          ...(data.account_number ? { accountNumber } : {}),
           ...(data.account_type ? { accountType: String(data.account_type).toUpperCase() as any } : {}),
           ...(data.active !== undefined ? { active: parseBool(data.active, true) } : {}),
         },
@@ -779,10 +816,10 @@ async function importBankAccount(
   const created = await prisma.bankAccount.create({
     data: {
       tenantId,
-      bankName: String(data.bank_name),
+      bankName,
       bankCode,
       agency,
-      accountNumber,
+      accountNumber: finalAccountNumber,
       accountType: (String(data.account_type || "CHECKING").toUpperCase()) as any,
       initialBalance: Number(data.initial_balance) || 0,
       currentBalance: Number(data.initial_balance) || 0,
@@ -922,16 +959,25 @@ async function importStagingEntry(
     if (pm) paymentMethodId = pm.id;
   }
 
+  const parsedDate = parseDate(data.date);
+  if (!parsedDate) throw new Error(`Data inválida para lançamento: "${data.date}"`);
+
+  const parsedAmount = Number(data.amount);
+  if (isNaN(parsedAmount)) throw new Error(`Valor inválido para lançamento: "${data.amount}"`);
+
+  const description = data.description != null ? String(data.description) : "";
+  if (!description) throw new Error("Descrição é obrigatória para o lançamento");
+
   const created = await prisma.stagingEntry.create({
     data: {
       tenantId,
       source: "MIGRATION",
       status: "PENDING" as any,
-      date: new Date(String(data.date)),
-      competenceDate: data.competence_date ? new Date(String(data.competence_date)) : undefined,
-      dueDate: data.due_date ? new Date(String(data.due_date)) : undefined,
-      description: String(data.description),
-      amount: Number(data.amount),
+      date: parsedDate,
+      competenceDate: parseDate(data.competence_date) ?? undefined,
+      dueDate: parseDate(data.due_date) ?? undefined,
+      description,
+      amount: parsedAmount,
       type,
       category: category as any,
       movementType: movementType as any,
@@ -1009,17 +1055,18 @@ export async function rollbackBatch(
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function getRequiredFields(entityType: MigrationEntityType): string[] {
+export function getRequiredFields(entityType: MigrationEntityType): string[] {
   switch (entityType) {
     case "CHART_OF_ACCOUNTS":
-      return ["code", "name", "type"];
+      return ["name", "type"];
     case "COST_CENTERS":
       return ["code", "name"];
     case "SUPPLIERS":
+      return ["name"];
     case "CUSTOMERS":
       return ["name", "cnpj_cpf"];
     case "BANK_ACCOUNTS":
-      return ["bank_name", "bank_code", "agency", "account_number"];
+      return ["bank_name"];
     case "PAYMENT_METHODS":
       return ["name", "type"];
     case "STAGING_ENTRIES":
@@ -1031,11 +1078,6 @@ function getRequiredFields(entityType: MigrationEntityType): string[] {
         "amount",
         "financial_nature",
         "chart_of_account_code",
-        "bank_code",
-        "agency",
-        "account_number",
-        "payment_method",
-        "document_number",
       ];
     case "OFFICIAL_ENTRIES":
       return ["date", "description", "amount", "type"];
@@ -1043,6 +1085,15 @@ function getRequiredFields(entityType: MigrationEntityType): string[] {
       return ["entry_external_id", "date", "amount"];
     case "INTERNAL_TRANSFERS":
       return ["source_bank_code", "source_agency", "source_account", "target_bank_code", "target_agency", "target_account", "amount", "transfer_date"];
+    default:
+      return [];
+  }
+}
+
+export function getRecommendedFields(entityType: MigrationEntityType): string[] {
+  switch (entityType) {
+    case "STAGING_ENTRIES":
+      return ["bank_code", "agency", "account_number", "payment_method", "document_number"];
     default:
       return [];
   }
@@ -1106,4 +1157,40 @@ function parseBool(value: unknown, defaultValue: boolean): boolean {
   if (typeof value === "boolean") return value;
   const str = String(value).toLowerCase().trim();
   return ["sim", "yes", "true", "1", "s", "y"].includes(str);
+}
+
+/**
+ * Robust date parser that handles:
+ * - ISO 8601:  "2024-04-15" or "2024-04-15T00:00:00Z"
+ * - Brazilian: "15/04/2024" or "15/04/2024 00:00:00"
+ * - Timestamps: numbers
+ * Returns null if the value is absent or unparseable.
+ */
+function parseDate(value: unknown): Date | null {
+  if (value === undefined || value === null || value === "") return null;
+
+  // Already a Date
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+
+  // Numeric timestamp
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const str = String(value).trim();
+  if (!str) return null;
+
+  // Brazilian format: DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
+  const brMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)?$/);
+  if (brMatch) {
+    const [, day, month, year, rest] = brMatch;
+    const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}${rest?.trim() ? `T${rest.trim()}` : ""}`;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // ISO and other formats
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
 }

@@ -44,8 +44,17 @@ export interface ParsedNFe {
   productDescription: string;
 }
 
+/** Default timeout for QIVE API requests (30 seconds) */
+const QIVE_TIMEOUT_MS = 30_000;
+
+/** Maximum retry attempts for transient errors */
+const QIVE_MAX_RETRIES = 3;
+
+/** Base delay for exponential backoff (ms) */
+const QIVE_RETRY_BASE_MS = 1_000;
+
 /**
- * Fetch received NFes from QIVE API
+ * Fetch received NFes from QIVE API with timeout and retry.
  */
 export async function fetchReceivedNFes(
   apiId: string,
@@ -59,31 +68,68 @@ export async function fetchReceivedNFes(
 
   const url = `${QIVE_BASE_URL}/v1/nfe/received?${params.toString()}`;
 
-  const response = await fetch(url, {
-    headers: {
-      "x-api-id": apiId,
-      "x-api-key": apiKey,
-      "Content-Type": "application/json",
-    },
-  });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `QIVE API error (${response.status}): ${errorText}`
-    );
+  for (let attempt = 0; attempt < QIVE_MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), QIVE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "x-api-id": apiId,
+          "x-api-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Don't retry on 4xx client errors (except 429 rate limit)
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          throw new Error(`QIVE API error (${response.status}): ${errorText}`);
+        }
+        // 5xx or 429 — retry with backoff
+        lastError = new Error(`QIVE API error (${response.status}): ${errorText}`);
+      } else {
+        return response.json();
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        lastError = new Error(`QIVE API timeout after ${QIVE_TIMEOUT_MS}ms`);
+      } else if (err instanceof Error && err.message.startsWith("QIVE API error (4")) {
+        // Client error (non-retryable) — rethrow immediately
+        throw err;
+      } else {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+
+    // Exponential backoff: 1s, 2s, 4s
+    if (attempt < QIVE_MAX_RETRIES - 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, QIVE_RETRY_BASE_MS * Math.pow(2, attempt))
+      );
+    }
   }
 
-  return response.json();
+  throw lastError ?? new Error("QIVE API request failed after retries");
 }
 
 /**
- * Fetch ALL received NFes, paginating automatically
+ * Fetch ALL received NFes, paginating automatically.
+ * Supports a checkpoint callback so callers can persist progress
+ * and resume from the last cursor on failure.
  */
 export async function fetchAllReceivedNFes(
   apiId: string,
   apiKey: string,
-  startCursor?: string
+  startCursor?: string,
+  onPageFetched?: (cursor: string | null, pageNfes: QiveNFeData[]) => Promise<void>,
 ): Promise<{ nfes: QiveNFeData[]; lastCursor: string | null }> {
   const allNfes: QiveNFeData[] = [];
   let cursor = startCursor || undefined;
@@ -97,6 +143,11 @@ export async function fetchAllReceivedNFes(
     }
 
     lastCursor = response.page?.next || null;
+
+    // Checkpoint: persist cursor so we can resume on failure
+    if (onPageFetched) {
+      await onPageFetched(lastCursor, response.data ?? []);
+    }
 
     if (!lastCursor || response.data.length === 0) {
       break;

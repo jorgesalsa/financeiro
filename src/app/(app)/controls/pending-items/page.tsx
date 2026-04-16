@@ -35,7 +35,7 @@ export default async function PendingItemsPage() {
       prisma.officialEntry.findMany({
         where: {
           tenantId: user.tenantId,
-          status: { in: ["OPEN", "PARTIAL"] },
+          status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
         },
         orderBy: { dueDate: "asc" },
         select: {

@@ -15,9 +15,13 @@ export const authConfig = {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
 
-      // Public routes
-      const publicPaths = ["/login", "/register", "/forgot-password", "/api/auth"];
-      if (publicPaths.some((p) => pathname.startsWith(p))) return true;
+      // Public routes — exact match to prevent path confusion attacks
+      const publicPaths = ["/login", "/register", "/forgot-password"];
+      if (publicPaths.includes(pathname)) return true;
+      // Invite acceptance page is public (token validates access)
+      if (pathname.startsWith("/invite/")) return true;
+      // NextAuth API routes need prefix matching but are scoped
+      if (pathname.startsWith("/api/auth/")) return true;
 
       // API routes with their own auth
       if (pathname.startsWith("/api/cron") || pathname.startsWith("/api/pluggy")) return true;

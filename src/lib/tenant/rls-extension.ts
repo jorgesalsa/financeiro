@@ -26,13 +26,16 @@ export async function withTenantScope<T>(
   tenantId: string,
   callback: (tx: typeof db) => Promise<T>,
 ): Promise<T> {
+  // SECURITY: Validate tenantId is present — RLS is deny-by-default
+  if (!tenantId || !tenantId.trim()) {
+    throw new Error("withTenantScope: tenantId is required (RLS deny-by-default)");
+  }
+
   return db.$transaction(async (tx) => {
     // SET LOCAL scopes the variable to this transaction only.
-    // Using a parameterised query ($1) to prevent SQL injection.
-    await tx.$executeRawUnsafe(
-      `SET LOCAL app.current_tenant = $1`,
-      tenantId,
-    );
+    // Using $executeRaw with tagged template for safe parameterisation.
+    await tx.$executeRaw`SET LOCAL app.current_tenant = ${tenantId}`;
+
     // Cast the transactional client so callers can use the full
     // Prisma API without type errors.
     return callback(tx as unknown as typeof db);

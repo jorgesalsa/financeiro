@@ -41,6 +41,11 @@ export async function updateClassificationRule(id: string, data: ClassificationR
   const user = await requireRole(["ADMIN", "CONTROLLER"]);
   const validated = classificationRuleSchema.parse(data);
 
+  // Security: verify ownership before update
+  await prisma.classificationRule.findFirstOrThrow({
+    where: { id, tenantId: user.tenantId },
+  });
+
   const rule = await prisma.classificationRule.update({
     where: { id },
     data: validated,
@@ -52,6 +57,11 @@ export async function updateClassificationRule(id: string, data: ClassificationR
 
 export async function deleteClassificationRule(id: string) {
   const user = await requireRole(["ADMIN", "CONTROLLER"]);
+
+  // Security: verify ownership before delete
+  await prisma.classificationRule.findFirstOrThrow({
+    where: { id, tenantId: user.tenantId },
+  });
 
   await prisma.classificationRule.delete({
     where: { id },
@@ -90,6 +100,11 @@ export async function updateValidationRule(id: string, data: ValidationRuleInput
   const user = await requireRole(["ADMIN", "CONTROLLER"]);
   const validated = validationRuleSchema.parse(data);
 
+  // Security: verify ownership before update
+  await prisma.validationRule.findFirstOrThrow({
+    where: { id, tenantId: user.tenantId },
+  });
+
   const rule = await prisma.validationRule.update({
     where: { id },
     data: {
@@ -104,6 +119,11 @@ export async function updateValidationRule(id: string, data: ValidationRuleInput
 
 export async function deleteValidationRule(id: string) {
   const user = await requireRole(["ADMIN", "CONTROLLER"]);
+
+  // Security: verify ownership before delete
+  await prisma.validationRule.findFirstOrThrow({
+    where: { id, tenantId: user.tenantId },
+  });
 
   await prisma.validationRule.delete({
     where: { id },

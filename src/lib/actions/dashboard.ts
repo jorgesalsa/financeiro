@@ -116,7 +116,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     prisma.officialEntry.count({
       where: {
         tenantId,
-        status: { in: ["OPEN", "PARTIAL"] },
+        status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
         dueDate: { lt: now },
       },
     }),
@@ -232,7 +232,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   const openEntries = await prisma.officialEntry.findMany({
     where: {
       tenantId,
-      status: { in: ["OPEN", "PARTIAL"] },
+      status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
       category: { in: ["PAYABLE", "RECEIVABLE"] },
     },
     select: {
@@ -296,7 +296,7 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     where: {
       tenantId,
       category: "PAYABLE",
-      status: { in: ["OPEN", "PARTIAL"] },
+      status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
       dueDate: { gte: now, lte: sevenDaysFromNow },
     },
     orderBy: { dueDate: "asc" },

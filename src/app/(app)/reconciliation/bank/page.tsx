@@ -24,7 +24,7 @@ export default async function BankReconciliationPage() {
       prisma.officialEntry.findMany({
         where: {
           tenantId: user.tenantId,
-          status: { in: ["OPEN", "PARTIAL"] },
+          status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
           reconciliations: { none: {} },
         },
         orderBy: { date: "desc" },

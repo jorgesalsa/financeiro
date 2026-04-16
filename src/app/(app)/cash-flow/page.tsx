@@ -44,7 +44,7 @@ export default async function CashFlowPage() {
   const projectedEntries = await prisma.officialEntry.findMany({
     where: {
       tenantId: user.tenantId,
-      status: { in: ["OPEN", "PARTIAL"] },
+      status: { in: ["OPEN", "PARTIAL", "OVERDUE"] },
       dueDate: { gte: today, lte: futureDate },
     },
     orderBy: { dueDate: "asc" },
