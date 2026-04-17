@@ -12,13 +12,18 @@ import type { Role } from "@/generated/prisma";
 // ─── Company / Tenant Management ─────────────────────────────────────────────
 
 /**
- * Creates a new tenant with default chart of accounts and auto-creates
+ * Creates a new tenant with optional default chart of accounts and auto-creates
  * an ADMIN membership for the current user.
+ *
+ * @param data.seedDefaults - Quando `false`, não insere o plano de contas padrão
+ *   (códigos 1–5). Recomendado para empresas que vão receber carga via Migração,
+ *   evitando conflitos de unique constraint em `(tenantId, code)`. Default: `true`.
  */
 export async function createTenant(data: {
   name: string;
   cnpj: string;
   slug: string;
+  seedDefaults?: boolean;
 }) {
   const user = await requireRole(["ADMIN"]);
 
@@ -28,6 +33,8 @@ export async function createTenant(data: {
   if (existing) {
     throw new Error("Já existe uma empresa com esse slug");
   }
+
+  const shouldSeedDefaults = data.seedDefaults !== false;
 
   const tenant = await prisma.$transaction(async (tx) => {
     const newTenant = await tx.tenant.create({
@@ -49,25 +56,29 @@ export async function createTenant(data: {
     });
 
     // Create default chart of accounts (top-level groups — financial/managerial)
-    const defaultAccounts = [
-      { code: "1", name: "RECEITAS", type: "REVENUE" as const, level: 1 },
-      { code: "2", name: "DEDUÇÕES E IMPOSTOS", type: "DEDUCTION" as const, level: 1 },
-      { code: "3", name: "CUSTOS", type: "COST" as const, level: 1 },
-      { code: "4", name: "DESPESAS OPERACIONAIS", type: "EXPENSE" as const, level: 1 },
-      { code: "5", name: "INVESTIMENTOS E RETIRADAS", type: "INVESTMENT" as const, level: 1 },
-    ];
+    // Pode ser desabilitado via `seedDefaults: false` para evitar conflitos com
+    // carga via Migração (ex: planilha com códigos 1-5 já utilizados).
+    if (shouldSeedDefaults) {
+      const defaultAccounts = [
+        { code: "1", name: "RECEITAS", type: "REVENUE" as const, level: 1 },
+        { code: "2", name: "DEDUÇÕES E IMPOSTOS", type: "DEDUCTION" as const, level: 1 },
+        { code: "3", name: "CUSTOS", type: "COST" as const, level: 1 },
+        { code: "4", name: "DESPESAS OPERACIONAIS", type: "EXPENSE" as const, level: 1 },
+        { code: "5", name: "INVESTIMENTOS E RETIRADAS", type: "INVESTMENT" as const, level: 1 },
+      ];
 
-    for (const account of defaultAccounts) {
-      await tx.chartOfAccount.create({
-        data: {
-          tenantId: newTenant.id,
-          code: account.code,
-          name: account.name,
-          type: account.type,
-          level: account.level,
-          isAnalytic: false,
-        },
-      });
+      for (const account of defaultAccounts) {
+        await tx.chartOfAccount.create({
+          data: {
+            tenantId: newTenant.id,
+            code: account.code,
+            name: account.name,
+            type: account.type,
+            level: account.level,
+            isAnalytic: false,
+          },
+        });
+      }
     }
 
     return newTenant;

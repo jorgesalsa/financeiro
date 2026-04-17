@@ -615,17 +615,20 @@ async function importChartOfAccount(
     if (parent) parentId = parent.id;
   }
 
-  if (action === "UPDATE") {
-    const existing = await prisma.chartOfAccount.findFirst({
-      where: { tenantId, code },
-    });
-    if (existing) {
+  // Idempotent: sempre checar se já existe pelo (tenantId, code)
+  const existing = await prisma.chartOfAccount.findFirst({
+    where: { tenantId, code },
+  });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.chartOfAccount.update({
         where: { id: existing.id },
         data: { name, type, level, parentId, isAnalytic, active },
       });
-      return existing.id;
     }
+    // CREATE com duplicata → retorna o existente (idempotente)
+    return existing.id;
   }
 
   const created = await prisma.chartOfAccount.create({
@@ -651,17 +654,19 @@ async function importCostCenter(
     if (parent) parentId = parent.id;
   }
 
-  if (action === "UPDATE") {
-    const existing = await prisma.costCenter.findFirst({
-      where: { tenantId, code },
-    });
-    if (existing) {
+  // Idempotent: sempre checar se já existe pelo (tenantId, code)
+  const existing = await prisma.costCenter.findFirst({
+    where: { tenantId, code },
+  });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.costCenter.update({
         where: { id: existing.id },
         data: { name, parentId, active },
       });
-      return existing.id;
     }
+    return existing.id;
   }
 
   const created = await prisma.costCenter.create({
@@ -678,12 +683,13 @@ async function importSupplier(
   const cnpjCpf = data.cnpj_cpf ? String(data.cnpj_cpf).replace(/\D/g, "") : "";
   const name = String(data.name);
 
-  // Try to find existing by CNPJ or by name (fallback when no CNPJ)
-  if (action === "UPDATE") {
-    const existing = cnpjCpf
-      ? await prisma.supplier.findFirst({ where: { tenantId, cnpjCpf } })
-      : await prisma.supplier.findFirst({ where: { tenantId, name } });
-    if (existing) {
+  // Idempotent: sempre checar existência (por CNPJ se houver, senão por nome)
+  const existing = cnpjCpf
+    ? await prisma.supplier.findFirst({ where: { tenantId, cnpjCpf } })
+    : await prisma.supplier.findFirst({ where: { tenantId, name } });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.supplier.update({
         where: { id: existing.id },
         data: {
@@ -700,8 +706,8 @@ async function importSupplier(
           ...(data.active !== undefined ? { active: parseBool(data.active, true) } : {}),
         },
       });
-      return existing.id;
     }
+    return existing.id;
   }
 
   const created = await prisma.supplier.create({
@@ -709,7 +715,8 @@ async function importSupplier(
       tenantId,
       name,
       tradeName: data.trade_name ? String(data.trade_name) : null,
-      cnpjCpf,
+      // cnpjCpf nullable: null permite múltiplos fornecedores sem CNPJ
+      cnpjCpf: cnpjCpf || null,
       stateRegistration: data.state_registration ? String(data.state_registration) : null,
       email: data.email ? String(data.email) : null,
       phone: data.phone ? String(data.phone) : null,
@@ -729,18 +736,22 @@ async function importCustomer(
   tenantId: string,
   action: string
 ): Promise<string> {
-  const cnpjCpf = String(data.cnpj_cpf).replace(/\D/g, "");
+  const cnpjCpf = data.cnpj_cpf ? String(data.cnpj_cpf).replace(/\D/g, "") : "";
+  const name = String(data.name);
 
-  if (action === "UPDATE") {
-    const existing = await prisma.customer.findFirst({
-      where: { tenantId, cnpjCpf },
-    });
-    if (existing) {
+  // Idempotent: sempre checar existência (por CNPJ se houver, senão por nome)
+  const existing = cnpjCpf
+    ? await prisma.customer.findFirst({ where: { tenantId, cnpjCpf } })
+    : await prisma.customer.findFirst({ where: { tenantId, name } });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.customer.update({
         where: { id: existing.id },
         data: {
-          ...(data.name ? { name: String(data.name) } : {}),
+          ...(data.name ? { name } : {}),
           ...(data.trade_name ? { tradeName: String(data.trade_name) } : {}),
+          ...(cnpjCpf ? { cnpjCpf } : {}),
           ...(data.email ? { email: String(data.email) } : {}),
           ...(data.phone ? { phone: String(data.phone) } : {}),
           ...(data.address ? { address: String(data.address) } : {}),
@@ -751,16 +762,17 @@ async function importCustomer(
           ...(data.active !== undefined ? { active: parseBool(data.active, true) } : {}),
         },
       });
-      return existing.id;
     }
+    return existing.id;
   }
 
   const created = await prisma.customer.create({
     data: {
       tenantId,
-      name: String(data.name),
+      name,
       tradeName: data.trade_name ? String(data.trade_name) : null,
-      cnpjCpf,
+      // cnpjCpf nullable: null permite múltiplos clientes sem CNPJ
+      cnpjCpf: cnpjCpf || null,
       stateRegistration: data.state_registration ? String(data.state_registration) : null,
       email: data.email ? String(data.email) : null,
       phone: data.phone ? String(data.phone) : null,
@@ -792,12 +804,13 @@ async function importBankAccount(
     finalAccountNumber = `MIG_${String(count + 1).padStart(4, "0")}`;
   }
 
-  if (action === "UPDATE") {
-    // Try exact match first, fallback to name match
-    const existing = (bankCode !== "000" && agency !== "0000" && accountNumber)
-      ? await prisma.bankAccount.findFirst({ where: { tenantId, bankCode, agency, accountNumber } })
-      : await prisma.bankAccount.findFirst({ where: { tenantId, bankName } });
-    if (existing) {
+  // Idempotent: tentar match exato por (bankCode, agency, accountNumber), fallback por bankName
+  const existing = (bankCode !== "000" && agency !== "0000" && accountNumber)
+    ? await prisma.bankAccount.findFirst({ where: { tenantId, bankCode, agency, accountNumber } })
+    : await prisma.bankAccount.findFirst({ where: { tenantId, bankName } });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.bankAccount.update({
         where: { id: existing.id },
         data: {
@@ -809,8 +822,8 @@ async function importBankAccount(
           ...(data.active !== undefined ? { active: parseBool(data.active, true) } : {}),
         },
       });
-      return existing.id;
     }
+    return existing.id;
   }
 
   const created = await prisma.bankAccount.create({
@@ -836,11 +849,13 @@ async function importPaymentMethod(
 ): Promise<string> {
   const name = String(data.name);
 
-  if (action === "UPDATE") {
-    const existing = await prisma.paymentMethod.findFirst({
-      where: { tenantId, name },
-    });
-    if (existing) {
+  // Idempotent: sempre checar pelo (tenantId, name)
+  const existing = await prisma.paymentMethod.findFirst({
+    where: { tenantId, name },
+  });
+
+  if (existing) {
+    if (action === "UPDATE") {
       await prisma.paymentMethod.update({
         where: { id: existing.id },
         data: {
@@ -850,8 +865,8 @@ async function importPaymentMethod(
           ...(data.active !== undefined ? { active: parseBool(data.active, true) } : {}),
         },
       });
-      return existing.id;
     }
+    return existing.id;
   }
 
   const created = await prisma.paymentMethod.create({

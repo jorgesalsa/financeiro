@@ -14,7 +14,8 @@ export function formatCpf(cpf: string): string {
   );
 }
 
-export function formatCnpjCpf(value: string): string {
+export function formatCnpjCpf(value: string | null | undefined): string {
+  if (!value) return "";
   const digits = value.replace(/\D/g, "");
   if (digits.length === 14) return formatCnpj(digits);
   if (digits.length === 11) return formatCpf(digits);

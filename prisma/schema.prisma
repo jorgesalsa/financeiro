@@ -458,7 +458,7 @@ model Supplier {
   tenantId          String
   name              String
   tradeName         String?
-  cnpjCpf           String
+  cnpjCpf           String?
   stateRegistration String?
   email             String?
   phone             String?
@@ -489,7 +489,7 @@ model Customer {
   tenantId          String
   name              String
   tradeName         String?
-  cnpjCpf           String
+  cnpjCpf           String?
   stateRegistration String?
   email             String?
   phone             String?

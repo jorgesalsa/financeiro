@@ -94,6 +94,7 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
   const [newName, setNewName] = useState("");
   const [newCnpj, setNewCnpj] = useState("");
   const [newSlug, setNewSlug] = useState("");
+  const [newSeedDefaults, setNewSeedDefaults] = useState(true);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -132,12 +133,14 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
           name: newName,
           cnpj: newCnpj.replace(/\D/g, ""),
           slug: newSlug,
+          seedDefaults: newSeedDefaults,
         });
         showFeedback("success", "Empresa criada com sucesso!");
         setCreateOpen(false);
         setNewName("");
         setNewCnpj("");
         setNewSlug("");
+        setNewSeedDefaults(true);
         // router.push forces a real navigation so the server component re-renders
         // with fresh DB data (router.refresh() is unreliable inside startTransition)
         router.push("/settings/companies");
@@ -566,6 +569,26 @@ export function CompaniesClient({ tenants }: CompaniesClientProps) {
               <p className="text-xs text-muted-foreground mt-1">
                 Gerado automaticamente a partir do nome
               </p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newSeedDefaults}
+                  onChange={(e) => setNewSeedDefaults(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium">
+                    Criar plano de contas padrão
+                  </span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Insere 5 grupos padrão (códigos 1–5: Receitas, Deduções, Custos, Despesas, Investimentos).
+                    Desmarque se você vai importar o plano de contas via Migração
+                    para evitar conflitos de código.
+                  </p>
+                </div>
+              </label>
             </div>
             <DialogFooter>
               <Button

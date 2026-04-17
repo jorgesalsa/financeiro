@@ -26,7 +26,7 @@ type Supplier = {
   id: string;
   name: string;
   tradeName: string | null;
-  cnpjCpf: string;
+  cnpjCpf: string | null;
   email: string | null;
   phone: string | null;
   city: string | null;
